@@ -1,0 +1,273 @@
+{
+	"$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+	"name": "BlitzBasic",
+	"scopeName": "source.bb",
+	"patterns": [
+		{
+			"include": "#comments"
+		},
+		{
+			"include": "#keywords"
+		},
+		{
+			"include": "#literals"
+		}
+	],
+	"repository": {
+		"comments": {
+			"patterns": [
+				{
+					"captures": {
+						"1": {
+							"name": "keyword.other.documentation"
+						}
+					},
+					"name": "comment.block.documentation",
+					"match": "(;; ).*$"
+				},
+				{
+					"captures": {
+						"1": {
+							"name": "keyword.other.documentation"
+						},
+						"2": {
+							"name": "variable.parameter"
+						}
+					},
+					"name": "comment.block.documentation",
+					"match": "(;;param)\\s(\\w+)\\b.*$"
+				},
+				{
+					"captures": {
+						"1": {
+							"name": "punctuation.definition.comment.semi-colon.bb"
+						}
+					},
+					"match": "(;).*$",
+					"name": "comment.line.semi-colon.bb"
+				}
+			]
+		},
+		"keywords": {
+			"patterns": [{
+				"name": "keyword.control.bb",
+				"match": "(?i)\\b(if|then|else|elseif|endif|select|case|default|end|repeat|until|forever|while|wend|for|to|step|next|exit|goto|gosub|return|function|dim|type|field|new|each|first|last|before|after|insert|delete|data|read|restore|include|null)\\b"
+			},
+			{
+				"name": "constant.language.bool.bb",
+				"match": "(?i)\\b(true|false)\\b"
+			},
+			{
+				"name": "keyword.operator.logical.bb",
+				"match": "(?i)\\b(and|or|xor|not)\\b"
+			},
+			{
+				"name": "keyword.operator.bitwise.bb",
+				"match": "(?i)\\b(shl|shr|sar)\\b"
+			},
+			{
+				"name": "keyword.operator.comparison.bb",
+				"match": "(<=|>=|=|<>|>|<)"
+			},
+			{
+				"name": "keyword.operator.arithmetic.bb",
+				"match": "(?i)\\b(\\+|\\-|\\*|/|mod)\\b"
+			},
+			{
+				"name": "support.function.builtin.2d.maths.bb",
+				"match": "(?i)\\b(sin|cos|tan|asin|acos|atan|atan2|floor|ceil|sgn|abs|sqr|exp|log|log10|rnd|rand|seedrnd|rndseed|pi|int|float)\\b"
+			},
+			{
+				"name": "support.function.builtin.2d.string.bb",
+				"match": "(?i)\\b(str|left|right|mid|replace|instr|upper|lower|trim|lset|rset|chr|asc|len|hex|bin|string)\\b"
+			},
+			{
+				"name": "support.function.builtin.2d.text.bb",
+				"match": "(?i)\\b(print|write|locate|text|loadfont|setfont|freefont|fontwidth|fontheight|stringwidth|stringheight)\\b"
+			},
+			{
+				"name": "support.function.builtin.2d.input.bb",
+				"match": "(?i)\\b(input|keydown|keyhit|getkey|waitkey|flushkeys|movemouse|mousedown|mousehit|getmouse|waitmouse|mousewait|mousex|mousey|mousez|mousexspeed|mouseyspeed|mousezspeed|flushmouse|joytype|joydown|joyhit|getjoy|waitjoy|joywait|joyx|joyy|joyz|joyu|joyv|joyxdir|joyydir|joyzdir|joyudir|joyvdir|joyyaw|joypitch|joyroll|joyhat|flushjoy)\\b"
+			},
+			{
+				"name": "support.function.builtin.2d.bank.bb",
+				"match": "(?i)\\b(createbank|freebank|banksize|resizebank|copybank|peekbyte|peekshort|peekint|peekfloat|pokebyte|pokeshort|pokeint|pokefloat)\\b"
+			},
+			{
+				"name": "support.function.builtin.2d.file.bb",
+				"match": "(?i)\\b(openfile|readfile|writefile|closefile|filepos|seekfile|readdir|closedir|nextfile|currentdir|changedir|createdir|deletedir|filetype|filesize|copyfile|deletefile)\\b"
+			},
+			{
+				"name": "support.function.builtin.2d.filestream.bb",
+				"match": "(?i)\\b(eof|readavail|(read|write)(bytes?|short|int|float|string|line))\\b"
+			},
+			{
+				"name": "support.function.builtin.2d.network.bb",
+				"match": "(?i)\\b(counthostips|hostip|dottedip|copystream|(open|close|accept)tcpstream|(create|close)tcpserver|(tcp|udp)(stream(ip|port)|timeouts)|(create|close)udpstream|(send|recv)udpmsg|udpmsg(ip|port))\\b"
+			},
+			{
+				"name": "support.function.builtin.2d.directplay.bb",
+				"match": "(?i)\\b((start|host|join|stop)netgame|(create|delete)netplayer|netplayer(name|local)|(recv|send)netmsg|netmsg(type|from|to|data))\\b"
+			},
+			{
+				"name": "support.function.builtin.2d.directshow.bb",
+				"match": "(?i)\\b((open|close|draw)movie|movie(width|height|playing))\\b"
+			},
+			{
+				"name": "support.function.builtin.2d.sound.bb",
+				"match": "(?i)\\b((load|free|loop|play)sound|sound(pitch|volume|pan)|play(music|cdtrack)|(stop|pause|resume)channel|channel(pitch|volume|pan|playing))\\b"
+			},
+			{
+				"name": "support.function.builtin.2d.graphics.bb",
+				"match": "(?i)\\b(graphics|endgraphics|setbuffer|frontbuffer|backbuffer|loadbuffer|savebuffer|lockbuffer|unlockbuffer|readpixel|writepixel|readpixelfast|writepixelfast|copypixel|copypixelfast|copyrect|viewport|origin|flip|vwait|scanline|graphics(height|width|depth|buffer)|color|clscolor|cls|plot|line|rect|oval|getcolor|color(red|green|blue)|countgfxmodes|countgfxdrivers|gfxdrivername|setgfxdriver|gfxmode(width|height|depth|exists)|(total|avail)vidmem|setgamma|updategamma|gamma(red|green|blue))\\b"
+			},
+			{
+				"name": "support.function.builtin.2d.image.bb",
+				"match": "(?i)\\b((load(anim)?|copy|create|free|save|grab|draw|tile|mask|handle|scale|resize|rotate|tform)image|image(buffer|width|height|(x|y)handle|soverlap|scollide|rect(overlap|collide))|draw(imagerect|blockrect|block)|tileblock|(auto)?midhandle|tformfilter|rectsoverlap)\\b"
+			},
+			{
+				"name": "support.function.builtin.2d.time.bb",
+				"match": "(?i)\\b(millisecs|delay|currentdate|currenttime|(create|free|wait)timer)\\b"
+			},
+			{
+				"name": "support.function.builtin.2d.system.bb",
+				"match": "(?i)\\b((show|hide)pointer|apptitle|commandline|systemproperty|(set|get)env|calldll|execfile|runtimeerror|end)\\b"
+			},
+			{
+				"name": "support.function.builtin.2d.debug.bb",
+				"match": "(?i)\\b(stop|debuglog)\\b"
+			},
+			{
+				"name": "support.function.builtin.3d.global.bb",
+				"match": "(?i)\\b(graphics3d|dither|wbuffer|antialias|wireframe|hwmultitex|ambientlight|(clear)?collisions|(update|capture|render|clear)world|loadermatrix|trisrendered)\\b"
+			},
+			{
+				"name": "support.function.builtin.3d.texture.bb",
+				"match": "(?i)\\b((create|load(anim)?|free|scale|position|rotate|getbrush)texture|texture(blend|coords|width|height|buffer|name|filter)|cleartexturefilters|setcube(face|mode)|activetextures)\\b"
+			},
+			{
+				"name": "support.function.builtin.3d.brush.bb",
+				"match": "(?i)\\b((create|load|free|get(entity|surface))brush|brush(color|alpha|shininess|texture|blend|fx))\\b"
+			},
+			{
+				"name": "support.function.builtin.3d.mesh.bb",
+				"match": "(?i)\\b((create|load(anim)?|copy|add|flip|paint|light|fit|scale|rotate|position)mesh|create(cube|sphere|cylinder|cone)|updatenormals|mesh(esintersect|width|height|depth|cullbox)|countsurfaces|getsurface)\\b"
+			},
+			{
+				"name": "support.function.builtin.3d.surface.bb",
+				"match": "(?i)\\b((create|paint|clear|find)surface|add(vertex|triangle)|vertex(coords|normal|color|texcoords|n?(x|y|z)|red|green|blue|alpha|u|v|w)|count(vertices|triangles)|trianglevertex)\\b"
+			},
+			{
+				"name": "support.function.builtin.3d.camera.bb",
+				"match": "(?i)\\b(createcamera|camera(projmode|fog(mode|range|color)|viewport|cls(mode|color)|range|zoom|pick|project)|picked(n?(x|y|z)|time|entity|surface|triangle)|projected(x|y|z)|entityinview)\\b"
+			},
+			{
+				"name": "support.function.builtin.3d.light.bb",
+				"match": "(?i)\\b(createlight|light(range|color|coneangles))\\b"
+			},
+			{
+				"name": "support.function.builtin.3d.pivot.bb",
+				"match": "(?i)\\bcreatepivot\\b"
+			},
+			{
+				"name": "support.function.builtin.3d.sprite.bb",
+				"match": "(?i)\\b((create|load|rotate|scale|handle)sprite|spriteviewmode)\\b"
+			},
+			{
+				"name": "support.function.builtin.3d.md2.bb",
+				"match": "(?i)\\b((load|animate)md2|md2anim(time|length|ating))\\b"
+			},
+			{
+				"name": "support.function.builtin.3d.bsp.bb",
+				"match": "(?i)\\b(loadbsp|bsp(ambientlight|lighting))\\b"
+			},
+			{
+				"name": "support.function.builtin.3d.plane.bb",
+				"match": "(?i)\\bcreateplane\\b"
+			},
+			{
+				"name": "support.function.builtin.3d.mirror.bb",
+				"match": "(?i)\\bcreatemirror\\b"
+			},
+			{
+				"name": "support.function.builtin.3d.terrain.bb",
+				"match": "(?i)\\b((create|load|modify)terrain|terrain(size|detail|shading|height|x|y|z))\\b"
+			},
+			{
+				"name": "support.function.builtin.3d.audio.bb",
+				"match": "(?i)\\b(createlistener|(load3d|emit)sound)\\b"
+			},
+			{
+				"name": "support.function.builtin.3d.entity.movement.bb",
+				"match": "(?i)\\b((scale|position|move|translate|rotate|turn|point)entity|aligntovector)\\b"
+			},
+			{
+				"name": "support.function.builtin.3d.entity.animation.bb",
+				"match": "(?i)\\b((load|add|extract)animseq|setanim(key|time)|anim(ate|seq|length|time|ating))\\b"
+			},
+			{
+				"name": "support.function.builtin.3d.entity.control.bb",
+				"match": "(?i)\\b((free|copy|paint|show|hide|name)entity|entity(color|alpha|shininess|texture|blend|fx|autofade|order|parent)|getparent)\\b"
+			},
+			{
+				"name": "support.function.builtin.3d.entity.state.bb",
+				"match": "(?i)\\b(entity(x|y|z|roll|yaw|pitch|class|name|pick|visible|distance)|countchildren|(get|find)child|linepick|delta(yaw|pitch)|tform(point|vector|normal|ed(x|y|z))|getmatelement)\\b"
+			},
+			{
+				"name": "support.function.builtin.3d.entity.collision.bb",
+				"match": "(?i)\\b(resetentity|entity(radius|box|type|pickmode|collided)|countcollisions|collision(n?(x|y|z)|time|entity|surface|triangle)|getentitytype)\\b"
+			},
+			{
+				"name": "support.function.builtin.3d.math.bb",
+				"match": "(?i)\\bvector(yaw|pitch)\\b"
+			},
+			{
+				"name": "support.function.builtin.3d.graphics.bb",
+				"match": "(?i)\\b(countgfxmodes3d|gfxmode3d(exists)?|gfxdriver(caps)?3d|windowed3d|hwtexunits)\\b"
+			},
+			{
+				"name": "storage.type.bb",
+				"patterns": [
+					{
+						"name": "storage.type.builtin.bb",
+						"match": "(?<=\\w+)(%|\\$|#)(?=\\s*)"
+					},
+					{
+						"name": "entity.name.type",
+						"match": "(?i)(?<=\\w+)\\.[a-z]\\w*"
+					},
+					{
+						"name": "entity.name.type",
+						"match": "(?i)(?<=type)\\s+\\w+(?=\\b)"
+					}
+				]
+			},
+			{
+				"name": "storage.modifier.bb",
+				"match": "(?i)\\b(const|global|local|dim)\\b"
+			},
+			{
+				"name": "entity.name.function",
+				"match": "(?i)(?<=function\\s)\\w+\\s*(?=\\.|#|\\$|%|\\()"
+			}
+			]
+		},
+		"literals": {
+			"patterns": [
+				{
+					"name": "string.quoted.double.bb",
+					"begin": "\"",
+					"end": "(\"|$)"
+				},
+				{
+					"name": "constant.numeric.bb",
+					"match": "\\b[0-9]+\\b"
+				},
+				{
+					"name": "comment.line.label.bb",
+					"match": "^(\\.).+$"
+				}
+			]
+		}
+	}
+}

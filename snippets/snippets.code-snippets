@@ -1,0 +1,73 @@
+{
+    "Print": {
+        "prefix": "print",
+        "body": "print($0)",
+        "description": "Print to screen"
+    },
+    "Main loop": {
+        "prefix": "main",
+        "body": [
+            ".mainloop",
+            "Repeat",
+            "$0",
+            "Until KeyHit(1)"
+        ],
+        "description": "Create main loop which repeats until esc pressed"
+    },
+    "If-Then": {
+        "prefix": "if",
+        "body": [
+            "If $1 Then",
+            "\t$0",
+            "EndIf"
+        ],
+        "description": "Simple if without else"
+    },
+    "If-Then-Else": {
+        "prefix": "ifelse",
+        "body": [
+            "If $1 Then",
+            "\t$2",
+            "Else",
+            "\t$0",
+            "Endif"
+        ],
+        "description": "Simple if with else"
+    },
+    "Iterative for loop": {
+        "prefix": "fori",
+        "body": [
+            "For ${1:i} = ${2:0} To $3",
+            "\t$0",
+            "Next"
+        ],
+        "description": "For loop with iterating variable"
+    },
+    "Foreach loop": {
+        "prefix": "foreach",
+        "body": [
+            "For ${1:i} = Each $2",
+            "\t$0",
+            "Next"
+        ],
+        "description": "For loop with iterating variable"
+    },
+    "Repeat-Until": {
+        "prefix": "repeat",
+        "body": [
+            "Repeat",
+            "\t$0",
+            "Until $1"
+        ],
+        "description": "Repeat-Until loop"
+    },
+    "Create Type": {
+        "prefix": "type",
+        "body": [
+            "Type $1",
+            "\t$0",
+            "End Type"
+        ],
+        "description": "Create new Type"
+    }
+}

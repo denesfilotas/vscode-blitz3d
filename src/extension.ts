@@ -646,12 +646,9 @@ class DocumentSemanticTokensProvider implements vscode.DocumentSemanticTokensPro
 					I will refactor this later...				
 				*/
 				if (t instanceof BlitzIterator && (i < t.range.start.line || i > t.endPosition.line)) continue;
-				occs: for (let st = oline.indexOf(t.lcname); st != -1 && (scpos === -1 || st < oscpos); st = oline.indexOf(t.lcname, st + 1)) {
+				for (let st = oline.indexOf(t.lcname); st != -1 && (scpos === -1 || st < oscpos); st = oline.indexOf(t.lcname, st + 1)) {
 					// not in strings
-					for (let ap = oline.indexOf('"'); ap != -1; ap = oline.indexOf('"', ap + 1)) {
-						if (st > ap && (oline.indexOf('"', ap + 1) == -1 || st < oline.indexOf('"', ap + 1))) continue occs;
-						ap = oline.indexOf('"', ap + 1);
-					}
+					if (isInString(oline, st)) continue;
 					if (t.matchBefore && !oline.substring(0, st).match(t.matchBefore)) continue;
 					if (t.matchAfter && !oline.substring(st + t.lcname.length).match(t.matchAfter)) continue;
 					if (st >= 0 && !oline[st - 1]?.match(/\w/) && !oline[st + t.lcname.length]?.match(/\w/)) {
@@ -665,12 +662,9 @@ class DocumentSemanticTokensProvider implements vscode.DocumentSemanticTokensPro
 					}
 				}
 				if (t instanceof BlitzFunction && t.uri == uri &&	i >= t.declarationRange.start.line && i < t.endPosition.line) t.locals.forEach((loc) => {
-					occs: for (let st = oline.indexOf(loc.lcname); st != -1 && (scpos === -1 || st < oscpos); st = oline.indexOf(loc.lcname, st + 1)) {
+					for (let st = oline.indexOf(loc.lcname); st != -1 && (scpos === -1 || st < oscpos); st = oline.indexOf(loc.lcname, st + 1)) {
 						// not in strings
-						for (let ap = oline.indexOf('"'); ap != -1; ap = oline.indexOf('"', ap + 1)){
-							if (st > ap && (oline.indexOf('"', ap + 1) == -1 || st < oline.indexOf('"', ap + 1))) continue occs;
-							ap = oline.indexOf('"', ap + 1);
-						}
+						if (isInString(oline, st)) continue;
 						if (loc.matchBefore && !oline.substring(0, st).match(loc.matchBefore)) continue;
 						if (loc.matchAfter && !oline.substring(st + loc.lcname.length).match(loc.matchAfter)) continue;
 						if (loc instanceof BlitzIterator && (i < loc.range.start.line || i > loc.endPosition.line)) continue;
@@ -686,12 +680,9 @@ class DocumentSemanticTokensProvider implements vscode.DocumentSemanticTokensPro
 					}
 				});
 				if (t instanceof BlitzType) t.fields.forEach((f) => {
-					occs: for (let st = oline.indexOf(f.lcname); st != -1 && (scpos === -1 || st < oscpos); st = oline.indexOf(f.lcname, st + 1)) {
+					for (let st = oline.indexOf(f.lcname); st != -1 && (scpos === -1 || st < oscpos); st = oline.indexOf(f.lcname, st + 1)) {
 						// not in strings
-						for (let ap = oline.indexOf('"'); ap != -1; ap = oline.indexOf('"', ap + 1)){
-							if (st > ap && (oline.indexOf('"', ap + 1) == -1 || st < oline.indexOf('"', ap + 1))) continue occs;
-							ap = oline.indexOf('"', ap + 1);
-						}
+						if (isInString(oline, st)) continue;
 						if (f.matchBefore && !oline.substring(0, st).match(f.matchBefore)) continue;
 						if (f.matchAfter && !oline.substring(st + f.lcname.length).match(f.matchAfter)) continue;
 						if (st >= 0 && !oline[st - 1]?.match(/\w/) && !oline[st + f.lcname.length]?.match(/\w/)) {
@@ -787,6 +778,22 @@ function startOfComment(line: string) : number {
 	return line.length + 1; // so that c >= startOfComment only if the cth is a comment character
 }
 
+/**
+ * Check if given position is between double quotes or after the last double quote (but before the start of comment)
+ * @param line the line to search in
+ * @param position the position to check
+ * @returns if the position is in a string in the command line
+ */
+function isInString(line:string, position: number) : boolean {
+	const scpos = startOfComment(line);
+	for (let ap = line.indexOf('"'); ap != -1 && ap < scpos; ap = line.indexOf('"', ap + 1)) {
+		if (position > ap && (line.indexOf('"', ap + 1) == -1 || position < line.indexOf('"', ap + 1))) return true;
+		ap = line.indexOf('"', ap + 1);
+		if (ap == -1 || ap > scpos) return false;
+	}
+	return false;
+}
+
 class BlitzHoverProvider implements vscode.HoverProvider {
     public provideHover(document: vscode.TextDocument, position: vscode.Position, token: vscode.CancellationToken): vscode.ProviderResult<vscode.Hover> {
 		const desc: string[] = [];
@@ -798,10 +805,7 @@ class BlitzHoverProvider implements vscode.HoverProvider {
 		if (document.lineAt(position.line).text[position.character] == ' ') return undefined;
 		const line = document.lineAt(position).text;
 		// not in strings
-		for (let ap = line.indexOf('"'); ap != -1; ap = line.indexOf('"', ap + 1)) {
-			if (position.character > ap && (line.indexOf('"', ap + 1) == -1 || position.character < line.indexOf('"', ap + 1))) return undefined;
-			ap = line.indexOf('"', ap + 1);
-		}
+		if (isInString(line, position.character)) return undefined;
 		// not in comments
 		if (position.character >= startOfComment(line)) return undefined;
 
@@ -1137,10 +1141,7 @@ class DefinitionProvider implements vscode.DefinitionProvider{
 		if (document.lineAt(position.line).text[position.character] == ' ') return undefined;
 		const line = document.lineAt(position).text;
 		// not in strings
-		for (let ap = line.indexOf('"'); ap != -1; ap = line.indexOf('"', ap + 1)) {
-			if (position.character > ap && (line.indexOf('"', ap + 1) == -1 || position.character < line.indexOf('"', ap + 1))) return undefined;
-			ap = line.indexOf('"', ap + 1);
-		}
+		if (isInString(line, position.character)) return undefined;
 		// not in comments
 		if (position.character >= startOfComment(line)) return undefined;
 

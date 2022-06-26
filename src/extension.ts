@@ -114,49 +114,58 @@ function generateTokens(uri: vscode.Uri, text: string): BlitzToken[] {
 
 		// parse global variables
 		if (tline.startsWith('global ')) {
-			const q = tline.substring('global '.length).split('=')[0].trim();
-			if (q.length > 0) {
-				r.push(new BlitzVariable(
-					removeType(oline.trimStart().substring(7).split('=')[0]),
-					uri,
-					oline.split('=')[0].trim(),
-					lineRange,
-					'global'
-				));
+			const q = oline.trimStart().split('=')[0].trim();
+			const vars = q.substring(7, startOfComment(q)).trim().split(',');
+			for (const v of vars) {
+				if (v.length > 0) {
+					r.push(new BlitzVariable(
+						removeType(v),
+						uri,
+						oline.substring(0, startOfComment(oline)).split('=')[0].trim(),
+						lineRange,
+						'global'
+					));
+				}
 			}
 		}
 
 		// parse locals (or at least try)
 		if (tline.startsWith('local ')) {
-			const q = tline.substring(6).split('=')[0].trim();
-			if (q.length > 0) {
-				let v = new BlitzVariable(
-					removeType(oline.trimStart().substring(6).split('=')[0]),
-					uri,
-					oline.split('=')[0].trim(),
-					lineRange,
-					'local'
-				);
-				v.description = oline.substring(startOfComment(oline)).trim();
-				if (cFunction) {
-					cFunction.locals.push(v);
-				} else r.push(v);
+			const q = oline.trimStart().split('=')[0].trim();
+			const vars = q.substring(7, startOfComment(q)).trim().split(',');
+			for (const v of vars) {
+				if (v.length > 0) {
+					let bv = new BlitzVariable(
+						removeType(oline.trimStart().substring(6).split('=')[0]),
+						uri,
+						oline.split('=')[0].trim(),
+						lineRange,
+						'local'
+					);
+					bv.description = oline.substring(startOfComment(oline)).trim();
+					if (cFunction) {
+						cFunction.locals.push(bv);
+					} else r.push(bv);
+				}
 			}
 		}
 		if (tline.startsWith('const ')) {
-			const q = tline.substring(6).split('=')[0].trim();
-			if (q.length > 0) {
-				let v = new BlitzVariable(
-					removeType(oline.trimStart().substring(6).split('=')[0]),
-					uri,
-					oline.substring(0, startOfComment(oline)).trim(),
-					lineRange,
-					'local'
-				);
-				v.description = oline.substring(startOfComment(oline)).trim();
-				if (cFunction) {
-					cFunction.locals.push(v);
-				} else r.push(v);
+			const q = oline.trimStart().split('=')[0].trim();
+			const vars = q.substring(7, startOfComment(q)).trim().split(',');
+			for (const v of vars) {
+				if (v.length > 0) {
+					let bv = new BlitzVariable(
+						removeType(oline.trimStart().substring(6).split('=')[0]),
+						uri,
+						oline.substring(0, startOfComment(oline)).trim(),
+						lineRange,
+						'local'
+					);
+					bv.description = oline.substring(startOfComment(oline)).trim();
+					if (cFunction) {
+						cFunction.locals.push(bv);
+					} else r.push(bv);
+				}
 			}
 		}
 		if (tline.startsWith('for ')) {

@@ -118,13 +118,15 @@ function generateTokens(uri: vscode.Uri, text: string): BlitzToken[] {
 			const vars = q.substring(7, startOfComment(q)).trim().split(',');
 			for (const v of vars) {
 				if (v.length > 0) {
-					r.push(new BlitzVariable(
+					const bv = new BlitzVariable(
 						removeType(v),
 						uri,
 						oline.substring(0, startOfComment(oline)).split('=')[0].trim(),
 						lineRange,
 						'global'
-					));
+					);
+					bv.description = oline.substring(startOfComment(oline) + 1).trim();
+					r.push(bv);
 				}
 			}
 		}
@@ -135,14 +137,14 @@ function generateTokens(uri: vscode.Uri, text: string): BlitzToken[] {
 			const vars = q.substring(7, startOfComment(q)).trim().split(',');
 			for (const v of vars) {
 				if (v.length > 0) {
-					let bv = new BlitzVariable(
+					const bv = new BlitzVariable(
 						removeType(oline.trimStart().substring(6).split('=')[0]),
 						uri,
 						oline.split('=')[0].trim(),
 						lineRange,
 						'local'
 					);
-					bv.description = oline.substring(startOfComment(oline)).trim();
+					bv.description = oline.substring(startOfComment(oline) + 1).trim();
 					if (cFunction) {
 						cFunction.locals.push(bv);
 					} else r.push(bv);
@@ -161,7 +163,7 @@ function generateTokens(uri: vscode.Uri, text: string): BlitzToken[] {
 						lineRange,
 						'local'
 					);
-					bv.description = oline.substring(startOfComment(oline)).trim();
+					bv.description = oline.substring(startOfComment(oline) + 1).trim();
 					if (cFunction) {
 						cFunction.locals.push(bv);
 					} else r.push(bv);
@@ -209,7 +211,7 @@ function generateTokens(uri: vscode.Uri, text: string): BlitzToken[] {
 		}
 
 		// parse locals with implicit declaration
-		if (tline.indexOf('=') >= 0 && (startOfComment(tline) > tline.indexOf('=')) && tline.split('=')[0].trim().indexOf(' ') == -1 && tline.split('=')[0].trim().indexOf('\\') == -1) {
+		if (tline.indexOf('=') >= 0 && tline.indexOf('=') < startOfComment(tline) && tline.split('=')[0].trim().indexOf(' ') == -1 && tline.split('=')[0].trim().indexOf('\\') == -1) {
 			let dt = extractType(tline.split('=')[0].trim())[1]
 			if (!dt) dt = '(%)';
 			let l = false;
@@ -251,8 +253,9 @@ function generateTokens(uri: vscode.Uri, text: string): BlitzToken[] {
 		}
 
 		// parse functions
-		const fn = oline.match(/(?<=\bfunction\b).+(?=\()/i)?.toString();
-		if (fn) {
+		if (tline.startsWith('function')) {
+			const fn = oline.match(/(?<=\bfunction\b).+(?=\()/i)?.toString();
+			if (!fn) continue;
 			cFunction = new BlitzFunction(
 				removeType(fn),
 				uri,
@@ -308,6 +311,7 @@ function generateTokens(uri: vscode.Uri, text: string): BlitzToken[] {
 		if (cType && tline.startsWith('end type')) {
 			cType.range = new vscode.Range(cType.declarationRange.start, lineRange.end);
 			r.push(cType);
+			cType = undefined
 		}
 
 		// parse labels

@@ -49,6 +49,7 @@ See contributed settings in the `Feature Contributions` tab.
 
  * Field declarations are not marked as fields semantically.
  * Colons are not supported. Using a colon as a command separator will create a warning in the diagnostics window.
+ * Dimmed arrays are not yet supported.
  * Hangs and unexpected behaviour (without code loss) can be experienced rarely
 
 ## Release Notes

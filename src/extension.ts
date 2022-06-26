@@ -547,7 +547,7 @@ function updateDiagnostics(document: vscode.TextDocument) {
 			else if (sout.trim() == "Unable to open linker.dll") vscode.window.showErrorMessage('BlitzPath is configured incorrectly. Please set BlitzPath in the extension settings correctly.');
 			const lines = sout.toLowerCase().split(/\r\n|\r|\n/);
 			for (const l of lines) {
-				if (l.indexOf(':') >= 0) {
+				if (l.indexOf(':') >= 0 && !l.startsWith('compiling')) {
 					const s = l.split(':');
 					const msg = s[s.length - 1];
 					const lineno = parseInt(s[s.length - 3]) - 1;

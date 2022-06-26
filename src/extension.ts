@@ -89,7 +89,7 @@ enum StubGenState {
 
 function generateTokens(uri: vscode.Uri, text: string): BlitzToken[] {
 	let r: BlitzToken[] = [];
-	let cType: BlitzType = new BlitzType('', uri, '', new vscode.Range(0, 0, 0, 0));
+	let cType: BlitzType | undefined;
 	let cStub: BlitzStub = new BlitzStub();
 	let cFunction: BlitzFunction | undefined;
 	let cIterator: BlitzIterator[] = [];
@@ -168,6 +168,8 @@ function generateTokens(uri: vscode.Uri, text: string): BlitzToken[] {
 				}
 			}
 		}
+
+		// parse iterators
 		if (tline.startsWith('for ')) {
 			const iter = oline.trimStart().substring(3).split('=')[0].trim();
 			if (iter.length > 0) {
@@ -205,6 +207,8 @@ function generateTokens(uri: vscode.Uri, text: string): BlitzToken[] {
 				else r.push(cit);
 			}
 		}
+
+		// parse locals with implicit declaration
 		if (tline.indexOf('=') >= 0 && (startOfComment(tline) > tline.indexOf('=')) && tline.split('=')[0].trim().indexOf(' ') == -1 && tline.split('=')[0].trim().indexOf('\\') == -1) {
 			let dt = extractType(tline.split('=')[0].trim())[1]
 			if (!dt) dt = '(%)';
@@ -229,7 +233,7 @@ function generateTokens(uri: vscode.Uri, text: string): BlitzToken[] {
 					'local',
 					dt
 				);
-				v.description = oline.split(';')[1]//.trim();
+				v.description = oline.substring(startOfComment(oline)).trim();
 				if (cFunction) cFunction.locals.push(v);
 				else r.push(v);
 			}
@@ -290,23 +294,25 @@ function generateTokens(uri: vscode.Uri, text: string): BlitzToken[] {
 			const tn = oline.trimStart().substring(4).trim();
 			if (tn.length > 0) cType = new BlitzType(tn, uri, oline.trim().split(';')[0], lineRange);
 		}
-		if (tline.startsWith('field')) {
-			tline.substring(5).split(';')[0].trim().split(',').forEach(val => {
-				const field = new BlitzVariable(removeType(val), uri, 'Field ' + val, lineRange, 'field', extractType(val)[1]);
-				field.description = oline.split(';')[1];
-				field.matchBefore = /(Field\s|\\)$/;
-				field.type = 'field';
-				cType.fields.push(field);
+		if (cType && tline.startsWith('field')) {
+			tline.substring(5, startOfComment(tline)).trim().split(',').forEach(val => {
+				if (val.length > 0) {
+					const field = new BlitzVariable(removeType(val), uri, 'Field ' + val, lineRange, 'field', extractType(val)[1]);
+					field.description = oline.substring(startOfComment(oline)).trim();
+					field.matchBefore = /(Field\s|\\)$/;
+					field.type = 'field';
+					cType?.fields.push(field);
+				}
 			})
 		}
-		if (tline.startsWith('end type')) {
+		if (cType && tline.startsWith('end type')) {
 			cType.range = new vscode.Range(cType.declarationRange.start, lineRange.end);
 			r.push(cType);
 		}
 
 		// parse labels
 		if (tline.startsWith('.') && tline.length > 1) {
-			r.push(new BlitzLabel(tline.substring(1), uri, '(label) ' + tline, lineRange));
+			r.push(new BlitzLabel(oline.trimStart().substring(1, startOfComment(oline.trimStart())), uri, '(label) ' + oline.trimStart(), lineRange));
 		}
 	}
 	return r;
@@ -689,7 +695,7 @@ class DocumentSemanticTokensProvider implements vscode.DocumentSemanticTokensPro
 					}
 				});
 				if (t instanceof BlitzType) t.fields.forEach((f) => {
-					for (let st = oline.indexOf(f.lcname); st != -1 && (scpos === -1 || st < oscpos); st = oline.indexOf(f.lcname, st + 1)) {
+					for (let st = oline.indexOf(f.lcname); st != -1 && st < startOfComment(oline); st = oline.indexOf(f.lcname, st + 1)) {
 						// not in strings
 						if (isInString(oline, st)) continue;
 						if (f.matchBefore && !oline.substring(0, st).match(f.matchBefore)) continue;

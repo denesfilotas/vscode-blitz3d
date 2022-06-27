@@ -79,6 +79,17 @@ class BlitzIterator extends BlitzVariable {
 	endPosition: vscode.Position = new vscode.Position(0,0);
 }
 
+class BlitzDimmedArray extends BlitzToken {
+	dimension: number;
+	dataType: string = '(%)';
+	constructor(name: string, uri: vscode.Uri, declaration: string, declarationRange: vscode.Range, dimension: number, dataType?: string) {
+		super(name, uri, declaration, declarationRange);
+		this.dimension = dimension;
+		this.type = 'array';
+		if (dataType) this.dataType = dataType;
+	}
+}
+
 enum StubGenState {
     declaration,
     parameters,
@@ -123,7 +134,8 @@ function generateTokens(uri: vscode.Uri, text: string): BlitzToken[] {
 						uri,
 						oline.substring(0, startOfComment(oline)).split('=')[0].trim(),
 						lineRange,
-						'global'
+						'global',
+						extractType(q)[1]
 					);
 					bv.description = oline.substring(startOfComment(oline) + 1).trim();
 					r.push(bv);
@@ -142,7 +154,8 @@ function generateTokens(uri: vscode.Uri, text: string): BlitzToken[] {
 						uri,
 						oline.split('=')[0].trim(),
 						lineRange,
-						'local'
+						'local',
+						extractType(q)[1]
 					);
 					bv.description = oline.substring(startOfComment(oline) + 1).trim();
 					if (cFunction) {
@@ -161,7 +174,8 @@ function generateTokens(uri: vscode.Uri, text: string): BlitzToken[] {
 						uri,
 						oline.substring(0, startOfComment(oline)).trim(),
 						lineRange,
-						'local'
+						'local',
+						extractType(q)[1]
 					);
 					bv.description = oline.substring(startOfComment(oline) + 1).trim();
 					if (cFunction) {
@@ -176,7 +190,6 @@ function generateTokens(uri: vscode.Uri, text: string): BlitzToken[] {
 			const iter = oline.trimStart().substring(3).split('=')[0].trim();
 			if (iter.length > 0) {
 				let dt = extractType(iter)[1]
-				if (!dt) dt = '(%)';
 				let l = false;
 				if (cFunction) for (const tl of cFunction.locals) {
 					if (tl.lcname == removeType(tline.substring(4).split('=')[0].trim())) {
@@ -211,33 +224,36 @@ function generateTokens(uri: vscode.Uri, text: string): BlitzToken[] {
 		}
 
 		// parse locals with implicit declaration
-		if (tline.indexOf('=') >= 0 && tline.indexOf('=') < startOfComment(tline) && tline.split('=')[0].trim().indexOf(' ') == -1 && tline.split('=')[0].trim().indexOf('\\') == -1) {
-			let dt = extractType(tline.split('=')[0].trim())[1]
-			if (!dt) dt = '(%)';
-			let l = false;
-			if (cFunction) for (const tl of cFunction.locals) {
-				if (tl.lcname == removeType(tline.split('=')[0].trim())) {
-					l = true;
-					break;
+		if (tline.indexOf('=') >= 0 && tline.indexOf('=') < startOfComment(tline)) {
+			const pline = tline.split('=')[0].trim();
+			if (!(pline.includes(' ') || pline.includes('\\') || pline.includes('(') || pline.includes('['))) {
+
+				let dt = extractType(tline.split('=')[0].trim())[1]
+				let l = false;
+				if (cFunction) for (const tl of cFunction.locals) {
+					if (tl.lcname == removeType(tline.split('=')[0].trim())) {
+						l = true;
+						break;
+					}
+				} else for (const t of r) {
+					if (t.lcname == removeType(tline.split('=')[0].trim())) {
+						l = true;
+						break;
+					}
 				}
-			} else for (const t of r) {
-				if (t.lcname == removeType(tline.split('=')[0].trim())) {
-					l = true;
-					break;
+				if (!l) {
+					const v = new BlitzVariable(
+						removeType(oline.split('=')[0]),
+						uri,
+						'(Local) ' + oline.split('=')[0].trim(),
+						lineRange,
+						'local',
+						dt
+					);
+					v.description = oline.substring(startOfComment(oline) + 1).trim();
+					if (cFunction) cFunction.locals.push(v);
+					else r.push(v);
 				}
-			}
-			if (!l) {
-				const v = new BlitzVariable(
-					removeType(oline.split('=')[0]),
-					uri,
-					'(Local) ' + oline.split('=')[0].trim(),
-					lineRange,
-					'local',
-					dt
-				);
-				v.description = oline.substring(startOfComment(oline)).trim();
-				if (cFunction) cFunction.locals.push(v);
-				else r.push(v);
 			}
 		}
 
@@ -317,6 +333,19 @@ function generateTokens(uri: vscode.Uri, text: string): BlitzToken[] {
 		// parse labels
 		if (tline.startsWith('.') && tline.length > 1) {
 			r.push(new BlitzLabel(oline.trimStart().substring(1, startOfComment(oline.trimStart())), uri, '(label) ' + oline.trimStart(), lineRange));
+		}
+
+		// parse dimmed arrays
+		if (tline.startsWith('dim ')) {
+			let pline = oline.trimStart().substring(4);
+			let arrname = pline.split('(')[0];
+			const dt = extractType(arrname)[1];
+			arrname = removeType(arrname);
+			const qline = pline.substring(pline.indexOf('(') + 1, pline.indexOf(')'));
+			if (pline.length > 0) {
+				const dims = qline.split(',').length;
+				r.push(new BlitzDimmedArray(arrname, uri, oline.substring(0, startOfComment(oline)).trim(), lineRange, dims, dt));
+			}
 		}
 	}
 	return r;
@@ -615,7 +644,7 @@ function extractType(name: string) {
 		return [ret[0], ret[1] + suffix]
 	} else if (q.endsWith('$') || q.endsWith('#') || q.endsWith('%')) {
 		return [q.substring(0, q.length - 1).trimEnd(), q.substring(q.length - 1) + suffix];
-	} else return [q, undefined];
+	} else return [q, '(%)' + suffix];
 }
 
 class DocumentSemanticTokensProvider implements vscode.DocumentSemanticTokensProvider {
@@ -957,6 +986,8 @@ class DocumentSymbolProvider implements vscode.DocumentSymbolProvider {
 				return vscode.SymbolKind.Field;
 			case 'label':
 				return vscode.SymbolKind.String;
+			case 'array':
+				return vscode.SymbolKind.Array;
 			default:
 				return vscode.SymbolKind.Module;
 		}
@@ -1017,7 +1048,8 @@ class DocumentSymbolProvider implements vscode.DocumentSymbolProvider {
 				let dataType = t.type;
 				if (t instanceof BlitzFunction) dataType = t.returnType;
 				if (t instanceof BlitzVariable) dataType = t.dataType;
-				let s = new vscode.DocumentSymbol(t.oname, dataType, DocumentSymbolProvider._typeToKind(t.type), t.range, t.declarationRange);
+				if (t instanceof BlitzDimmedArray) dataType = t.dataType + '(' + t.dimension + ')';
+				let s = new vscode.DocumentSymbol(t.oname, dataType, dataType.endsWith('[]') ? vscode.SymbolKind.Array : DocumentSymbolProvider._typeToKind(t.type), t.range, t.declarationRange);
 				if (t instanceof BlitzFunction) {
 					for (const loc of t.locals) {
 						if (includeParams || loc.type != 'parameter') s.children.push(new vscode.DocumentSymbol(loc.oname, loc.dataType, DocumentSymbolProvider._typeToKind(loc.type), loc.range, loc.declarationRange));

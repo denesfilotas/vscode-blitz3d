@@ -473,6 +473,23 @@ const legend = (function () {
 	return new vscode.SemanticTokensLegend(tokenTypesLegend, tokenModifiersLegend);
 })();
 
+function showSampleBrowser(viewpath: string) {
+	const files = readdirSync(viewpath);
+	const options = files.filter((val) => !val.includes('.') || val.endsWith('.bb'))
+	if (viewpath != blitzpath + path.sep + 'samples') options.push('..');
+	vscode.window.showQuickPick(options).then((chosen) => {
+		if (!chosen) return;
+		if (chosen == '..') viewpath = viewpath.substring(0, viewpath.lastIndexOf(path.sep));
+		else viewpath = viewpath + path.sep + chosen;
+		if (chosen?.endsWith('.bb')) {
+			vscode.window.showInformationMessage('Opening ' + chosen + ' from installation folder. Overwrtiting the file causes data loss.');
+			vscode.workspace.openTextDocument(vscode.Uri.file(viewpath)).then((document) => {vscode.window.showTextDocument(document)});
+		} else {
+			showSampleBrowser(viewpath);
+		}
+	});
+}
+
 export function activate(context: vscode.ExtensionContext) {
 
 	diagnosticCollection = vscode.languages.createDiagnosticCollection('blitz3d');
@@ -487,14 +504,14 @@ export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push (
 		vscode.commands.registerCommand('extension.blitz3d.debug', () => {
 			let term = vscode.window.createTerminal("blitzcc");
-			term.sendText('blitzcc -d ' + vscode.window.activeTextEditor?.document.fileName);
+			term.sendText('blitzcc -d "' + vscode.window.activeTextEditor?.document.fileName + '"');
 		})
 	);
 
 	context.subscriptions.push (
 		vscode.commands.registerCommand('extension.blitz3d.run', () => {
 			let term = vscode.window.createTerminal('blitzcc');
-			term.sendText('blitzcc ' + vscode.window.activeTextEditor?.document.fileName);
+			term.sendText('blitzcc "' + vscode.window.activeTextEditor?.document.fileName + '"');
 		})
 	);
 
@@ -519,7 +536,8 @@ export function activate(context: vscode.ExtensionContext) {
 						})
 						break;
 					default:
-						vscode.window.showInformationMessage('This feature is not implemented yet.');
+						let viewpath = blitzpath + path.sep + 'samples';
+						showSampleBrowser(viewpath);
 				}
 			})
 		})
@@ -808,7 +826,7 @@ class Blitz3DConfigurationProvider implements vscode.DebugConfigurationProvider 
 			config.bbfile = vscode.workspace.workspaceFolders?.[0].uri.fsPath + path.sep + config.bbfile;
 		}
 		// implementing debug call in config resolver since idfk why my js doesn't launch
-		const cmd = 'blitzcc -d ' + config.bbfile;
+		const cmd = 'blitzcc -d "' + config.bbfile + '"';
 		const blitzpath = vscode.workspace.getConfiguration('blitz3d.installation').get<string>('BlitzPath');
 		const env = process.env;
 		if (blitzpath && blitzpath.length > 0) {

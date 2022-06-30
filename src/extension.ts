@@ -118,10 +118,13 @@ function generateTokens(uri: vscode.Uri, text: string): BlitzToken[] {
 		if (tline.startsWith('include')) {
 			const infile = tline.match(/(?<=\").+(?=\")/)?.toString();
 			if (infile) {
-				//const infilepath = path.join(uri.path.substring(1, uri.path.lastIndexOf('/')), infile); // path is relative to run location
-				const wsfolder = vscode.workspace.workspaceFolders?.[0];
-				const infilepath = wsfolder ? path.join(wsfolder.uri.path.substring(1), infile) : path.join(uri.path.substring(1, uri.path.lastIndexOf('/')), infile);
-				//TODO obtain infile path from launch config
+				let infilepath: string;
+				if (path.isAbsolute(infile)) {
+					infilepath = infile;
+				} else {
+					const wsfolder = vscode.workspace.workspaceFolders?.[0];
+					infilepath = wsfolder ? path.join(wsfolder.uri.path.substring(1), infile) : path.join(uri.path.substring(1, uri.path.lastIndexOf('/')), infile);
+				}
 				const intext = readFileSync(infilepath).toString();
 				if (intext.length > 0) r = r.concat(generateTokens(vscode.Uri.file(infilepath), intext));
 			}

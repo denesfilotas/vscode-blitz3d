@@ -507,14 +507,14 @@ export function activate(context: vscode.ExtensionContext) {
 					case '2D command examples':
 						const commands2d = readdirSync(cpath + '2d_examples');
 						vscode.window.showQuickPick(commands2d).then((val) => {
-							vscode.workspace.openTextDocument({language: 'blitz3d', content: readFileSync(cpath + '2d_examples' + path.sep + val).toString()})
+							vscode.workspace.openTextDocument({language: 'blitz3d', content: readFileSync(cpath + '2d_examples' + path.sep + val).toString().replace(/"media/gi, '"' + cpath + '2d_examples' + path.sep + 'media')})
 							.then((d) => {vscode.window.showTextDocument(d)}, () => {vscode.window.showErrorMessage('Unable to open example.')});
 						})
 						break;
 					case '3D command examples':
 						const commands3d = readdirSync(cpath + '3d_examples');
 						vscode.window.showQuickPick(commands3d).then((val) => {
-							vscode.workspace.openTextDocument({language: 'blitz3d', content: readFileSync(cpath + '3d_examples' + path.sep + val).toString()})
+							vscode.workspace.openTextDocument({language: 'blitz3d', content: readFileSync(cpath + '3d_examples' + path.sep + val).toString().replace(/"media/gi, '"' + cpath + '3d_examples' + path.sep + 'media')})
 							.then((d) => {vscode.window.showTextDocument(d)}, () => {vscode.window.showErrorMessage('Unable to open example.')});
 						})
 						break;

@@ -317,8 +317,8 @@ function generateTokens(uri: vscode.Uri, text: string): BlitzToken[] {
 			tline.substring(5, startOfComment(tline)).trim().split(',').forEach(val => {
 				if (val.length > 0) {
 					const field = new BlitzVariable(removeType(val), uri, 'Field ' + val, lineRange, 'field', extractType(val)[1]);
-					field.description = oline.substring(startOfComment(oline)).trim();
-					field.matchBefore = /(Field\s|\\)$/;
+					field.description = oline.substring(startOfComment(oline) + 1).trim();
+					field.matchBefore = /(Field\s+|\\)$/;
 					field.type = 'field';
 					cType?.fields.push(field);
 				}
@@ -327,7 +327,7 @@ function generateTokens(uri: vscode.Uri, text: string): BlitzToken[] {
 		if (cType && tline.startsWith('end type')) {
 			cType.range = new vscode.Range(cType.declarationRange.start, lineRange.end);
 			r.push(cType);
-			cType = undefined
+			cType = undefined;
 		}
 
 		// parse labels
@@ -844,7 +844,7 @@ function isInString(line:string, position: number) : boolean {
 
 class BlitzHoverProvider implements vscode.HoverProvider {
     public provideHover(document: vscode.TextDocument, position: vscode.Position, token: vscode.CancellationToken): vscode.ProviderResult<vscode.Hover> {
-		const desc: string[] = [];
+		const desc = new vscode.MarkdownString();
 		const wr = document.getWordRangeAtPosition(position);
 		// not on whitespace
 		if (!wr) return undefined;
@@ -873,17 +873,17 @@ class BlitzHoverProvider implements vscode.HoverProvider {
 		for (const stub of stubs) {
 			if (stub.name.toLowerCase() == def) {
 				def = '```\n' + stub.declaration + '\n```';
-				desc.push('#### Parameters');
+				desc.appendMarkdown('\n#### Parameters\n');
 				stub.parameters.forEach((p) => {
-					desc.push('- ' + p);
+					desc.appendMarkdown('\n * ' + p);
 				});
-				desc.push('\n#### Description');
+				desc.appendMarkdown('\n\n#### Description\n');
 				stub.description.forEach((descLine) => {
-					desc.push(descLine);
+					desc.appendMarkdown('\n' + descLine);
 				});
 				if(stub.example.length == 0) break;
-				desc.push('#### Example');
-				desc.push('```\n' + stub.example.replace('\r\n', '  \n') + '\n```');
+				desc.appendMarkdown('\n#### Example\n');
+				desc.appendCodeblock(stub.example.replace('\r\n', '  \n'));
 				dl = '';
 				break;
 			}
@@ -929,11 +929,11 @@ class BlitzHoverProvider implements vscode.HoverProvider {
 				newdef = '```\n' + t.declaration + '\n```';
 				if (t instanceof BlitzFunction && t.stub /*&& '#$%. ('.indexOf(t.declaration.charAt(t.name.length + 9)) >= 0*/) {
 					t.stub.description.forEach((descLine) => {
-						desc.push(descLine);
+						desc.appendMarkdown(descLine);
 					});
-					if (t.stub.parameters.length > 0) desc.push('#### Parameters');
+					if (t.stub.parameters.length > 0) desc.appendMarkdown('#### Parameters');
 					t.stub.parameters.forEach((p) => {
-						desc.push(p);
+						desc.appendMarkdown(p);
 					});
 					if (t.uri != document.uri) dl = 'Defined in ' + t.uri.path.substring(t.uri.path.lastIndexOf('/') + 1);
 				}
@@ -944,7 +944,7 @@ class BlitzHoverProvider implements vscode.HoverProvider {
 				t.locals.forEach((loc) => {
 					if (def == loc.lcname && !((loc.matchBefore && !line.substring(0, wr.start.character).match(loc.matchBefore)) || (loc.matchAfter && !line.substring(wr.end.character).match(loc.matchAfter)))) {
 						priornewdef = '```\n' + loc.declaration + '\n```';
-						if (loc.description) desc.push(loc.description);
+						if (loc.description) desc.appendMarkdown(loc.description);
 						dl = 'Defined in Function ' + t.oname;
 					}
 				});
@@ -953,7 +953,7 @@ class BlitzHoverProvider implements vscode.HoverProvider {
 				t.fields.forEach((f) => {
 					if (def == f.lcname && !((f.matchBefore && !line.substring(0, wr.start.character).match(f.matchBefore)) || (f.matchAfter && !line.substring(wr.end.character).match(f.matchAfter)))) {
 						priornewdef = '```\n' + f.declaration + '\n```';
-						if (f.description) desc.push(f.description);
+						if (f.description) desc.appendMarkdown(f.description);
 						dl = 'Defined in Type ' + t.oname;
 					}
 				});
@@ -961,10 +961,13 @@ class BlitzHoverProvider implements vscode.HoverProvider {
 		}
 		if (priornewdef.length > 0) def = priornewdef;
 		else if (newdef.length > 0) def = newdef;
+		// const hover = new vscode.MarkdownString();
+		// hover.supportHtml = true;
+		// hover.appendMarkdown(desc.join('  \n'));
 		return {
 			contents: [
 				def,
-				desc.join('  \n') + (desc.length > 0 ? '  \n' : ''),
+				desc,
 				dl
 			]
 		}

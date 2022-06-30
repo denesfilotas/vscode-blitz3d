@@ -8,7 +8,11 @@ const tokenModifiers = new Map<string, number>();
 let diagnosticCollection: vscode.DiagnosticCollection;
 let stubs: BlitzStub[];
 let stubpath: string;
+export let blitzpath: string | undefined;
 
+function updateBlitzPath() {
+	blitzpath = vscode.workspace.getConfiguration('blitz3d.installation').get<string>('BlitzPath');
+}
 
 class BlitzStub {
 	name: string = '';
@@ -483,10 +487,38 @@ export function activate(context: vscode.ExtensionContext) {
 			term.sendText('blitzcc -d ' + vscode.window.activeTextEditor?.document.fileName);
 		})
 	);
+
 	context.subscriptions.push (
 		vscode.commands.registerCommand('extension.blitz3d.run', () => {
 			let term = vscode.window.createTerminal('blitzcc');
 			term.sendText('blitzcc ' + vscode.window.activeTextEditor?.document.fileName);
+		})
+	);
+
+	context.subscriptions.push(
+		vscode.commands.registerCommand('extension.blitz3d.openExample', () => {
+			updateBlitzPath();
+			const cpath = blitzpath ? (blitzpath + (blitzpath.endsWith(path.sep) ? '' : path.sep) + 'help' + path.sep + 'commands' + path.sep) : 'C:\\Program Files (x86)\\Blitz3D\\help\\commands\\';
+			vscode.window.showQuickPick(['2D command examples', '3D command examples', 'Samples']).then((category) => {
+				switch(category) {
+					case '2D command examples':
+						const commands2d = readdirSync(cpath + '2d_examples');
+						vscode.window.showQuickPick(commands2d).then((val) => {
+							vscode.workspace.openTextDocument({language: 'blitz3d', content: readFileSync(cpath + '2d_examples' + path.sep + val).toString()})
+							.then((d) => {vscode.window.showTextDocument(d)}, () => {vscode.window.showErrorMessage('Unable to open example.')});
+						})
+						break;
+					case '3D command examples':
+						const commands3d = readdirSync(cpath + '3d_examples');
+						vscode.window.showQuickPick(commands3d).then((val) => {
+							vscode.workspace.openTextDocument({language: 'blitz3d', content: readFileSync(cpath + '3d_examples' + path.sep + val).toString()})
+							.then((d) => {vscode.window.showTextDocument(d)}, () => {vscode.window.showErrorMessage('Unable to open example.')});
+						})
+						break;
+					default:
+						vscode.window.showInformationMessage('This feature is not implemented yet.');
+				}
+			})
 		})
 	);
 
@@ -508,6 +540,7 @@ export function activate(context: vscode.ExtensionContext) {
 
 	context.subscriptions.push(vscode.commands.registerCommand('extension.blitz3d.generatestubs', generateStubs));
 
+	updateBlitzPath();
 	stubpath = context.asAbsolutePath('stubs.bb')
 	let stubdoc = readFileSync(stubpath);
 	stubs = loadDefaultStubs(stubdoc);
@@ -515,20 +548,19 @@ export function activate(context: vscode.ExtensionContext) {
 }
 
 function generateStubs() {
-	let blitzpath = vscode.workspace.getConfiguration('blitz3d.installation').get<string>('BlitzPath');
-	if (!blitzpath) blitzpath = 'C:\\Program Files (x86)\\Blitz3D\\help\\commands\\';
-	else blitzpath += blitzpath.endsWith(path.sep) ? '' : path.sep + 'help' + path.sep + 'commands' + path.sep;
+	updateBlitzPath();
+	const cpath = blitzpath ?  blitzpath + blitzpath.endsWith(path.sep) ? '' : path.sep + 'help' + path.sep + 'commands' + path.sep : 'C:\\Program Files (x86)\\Blitz3D\\help\\commands\\';
 	let stubs: BlitzStub[] = [];
 	let ws = createWriteStream(stubpath);
-	const files2d = readdirSync(blitzpath + '2d_commands');
+	const files2d = readdirSync(cpath + '2d_commands');
 	files2d.forEach((fileName) => {
-		const file = readFileSync(blitzpath + '2d_commands' + path.sep + fileName);
+		const file = readFileSync(cpath + '2d_commands' + path.sep + fileName);
 		let stub = generateStubFromDoc(file);
 		if (fileName != 'template.htm') stubs.push(stub);
 	})
-	const files3d = readdirSync(blitzpath + '3d_commands');
+	const files3d = readdirSync(cpath + '3d_commands');
 	files3d.forEach((fileName) => {
-		const file = readFileSync(blitzpath + '3d_commands' + path.sep + fileName);
+		const file = readFileSync(cpath + '3d_commands' + path.sep + fileName);
 		let stub = generateStubFromDoc(file);
 		if (fileName != 'template.htm') stubs.push(stub);
 	})
@@ -583,7 +615,7 @@ function updateDiagnostics(document: vscode.TextDocument) {
 	// TODO check for errors by ourselves
 
 	// run compiler with env got from config
-	const blitzpath = vscode.workspace.getConfiguration('blitz3d.installation').get<string>('BlitzPath');
+	updateBlitzPath();
 	const env = process.env;
 	if (blitzpath && blitzpath.length > 0) {
 		env['PATH'] += path.delimiter + blitzpath + (blitzpath.endsWith(path.sep) ? '' : path.sep) + 'bin';

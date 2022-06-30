@@ -63,6 +63,11 @@
                 "title": "Generate BlitzDoc stubs",
                 "category": "Blitz3D",
                 "command": "extension.blitz3d.generatestubs"
+            },
+            {
+                "title": "Open Example",
+                "category": "Blitz3D",
+                "command": "extension.blitz3d.openExample"
             }
         ],
         "debuggers": [

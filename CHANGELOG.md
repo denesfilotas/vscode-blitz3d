@@ -5,6 +5,7 @@ All main and major version changes are listed here. Minor version changes should
 
 ## 0.2.0
 - Support introduced for dimmed arrays
+- Added command to open examples in the editor
 
 ## 0.1.0
 

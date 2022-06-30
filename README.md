@@ -55,4 +55,5 @@ See contributed settings in the `Feature Contributions` tab.
 This update adds the following features:
  * Dimmed arrays are now supported
  * Type detection improved
+ * Added command to open examples in the editor
 > To see all the changes, check the changelog or the github repo.

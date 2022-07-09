@@ -931,7 +931,9 @@ class BlitzHoverProvider implements vscode.HoverProvider {
 				def = '```\n' + stub.declaration + '\n```';
 				desc.appendMarkdown('\n#### Parameters\n');
 				stub.parameters.forEach((p) => {
-					desc.appendMarkdown('\n * ' + p);
+					const fsp = p.trimStart().indexOf(' ');
+					desc.appendMarkdown('\n `' + p.trimStart().substring(0, fsp) + '` ' + p.trim().substring(fsp) + '  \n');
+
 				});
 				desc.appendMarkdown('\n\n#### Description\n');
 				stub.description.forEach((descLine) => {
@@ -987,9 +989,9 @@ class BlitzHoverProvider implements vscode.HoverProvider {
 					t.stub.description.forEach((descLine) => {
 						desc.appendMarkdown(descLine);
 					});
-					if (t.stub.parameters.length > 0) desc.appendMarkdown('#### Parameters');
+					if (t.stub.parameters.length > 0) desc.appendMarkdown('\n#### Parameters\n');
 					t.stub.parameters.forEach((p) => {
-						desc.appendMarkdown(p);
+						desc.appendMarkdown(p + '  \n');
 					});
 					if (t.uri != document.uri) dl = 'Defined in ' + t.uri.path.substring(t.uri.path.lastIndexOf('/') + 1);
 				}

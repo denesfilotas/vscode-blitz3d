@@ -48,12 +48,12 @@ See contributed settings in the `Feature Contributions` tab.
 ## Known Issues
 
  * Field declarations are not marked as fields semantically.
- * Colons are not supported. Using a colon as a command separator will create a warning in the diagnostics window.
+ * Colons are not supported. Using a colon can cause unexpected behaviour.
  * Hangs and unexpected behaviour (without code loss) can be experienced rarely
 
 ## Release Notes
 This update adds the following features:
- * Dimmed arrays are now supported
+ * Dimmed arrays are now supported, with proper code completion and signature help
  * Type detection improved
  * Added command to open examples in the editor
-> To see all the changes, check the changelog or the github repo.
+> To see all the changes, check the [changelog](CHANGELOG.md) or the [GitHub repository](https://github.com/denesfilotas/vscode-blitz3d).

@@ -36,6 +36,7 @@ class BlitzToken {
 	matchAfter: string | RegExp | undefined;
 
 	constructor(name: string, uri: vscode.Uri, declaration: string, declarationRange: vscode.Range) {
+		if (name.length == 0) name = '<unnamed>';
 		this.oname = name;
 		this.lcname = name.toLowerCase();
 		this.uri = uri;
@@ -349,7 +350,7 @@ function generateTokens(uri: vscode.Uri, text: string): BlitzToken[] {
 			const dt = extractType(arrname)[1];
 			arrname = removeType(arrname);
 			const qline = pline.substring(pline.indexOf('(') + 1, pline.indexOf(')'));
-			if (pline.length > 0) {
+			if (pline.length > 0 && arrname.length > 0) {
 				const dims = qline.split(',').length;
 				r.push(new BlitzDimmedArray(arrname, uri, oline.substring(0, startOfComment(oline)).trim(), lineRange, dims, dt));
 			}
@@ -1220,6 +1221,17 @@ class CompletionItemProvider implements vscode.CompletionItemProvider {
 					description: t.description
 				}
 				ci.documentation = t.description;
+			} else if (t instanceof BlitzDimmedArray) {
+				ci.label = {
+					label: t.oname,
+					detail: (t.dataType.charAt(0).match(/\w/) ? '.' : '') + t.dataType,
+					description: 'Dimmed array'
+				}
+				ci.insertText = new vscode.SnippetString(t.oname + '($0)');
+				ci.command = {
+					title: 'Trigger Parameter Hints',
+					command: 'editor.action.triggerParameterHints'
+				}
 			}
 			r.push(ci);
 		}
@@ -1230,6 +1242,7 @@ class CompletionItemProvider implements vscode.CompletionItemProvider {
 			let ci = new vscode.CompletionItem({label: stub.name, detail: stub.declaration.substring(8).includes('(') ? '()' : ''}, vscode.CompletionItemKind.Function);
 			ci.documentation = stub.description.join('  \n');
 			if (usebrackets || stub.declaration.substring(9).includes('(')) ci.insertText = new vscode.SnippetString(stub.name + '($0)');
+			if (stub.name == 'Dim') ci.insertText = new vscode.SnippetString('Dim ${1:array_name}(${0:maxindex0,...})');
 			ci.command = {
 				title: 'Trigger Parameter Hints',
 				command: 'editor.action.triggerParameterHints'
@@ -1309,6 +1322,16 @@ class SignatureHelpProvider implements vscode.SignatureHelpProvider {
 				}
 			}
 			for (const t of tokens) {
+				if (t instanceof BlitzDimmedArray && t.lcname == document.getText(wr).toLowerCase()) {
+					let sigInf = new vscode.SignatureInformation('(element) ' + t.oname + '(index0');
+					sigInf.parameters.push(new vscode.ParameterInformation('index0'));
+					for (let i = 1; i < t.dimension; i++) {
+						sigInf.label += ', index' + i;
+						sigInf.parameters.push(new vscode.ParameterInformation('index' + i));					
+					}
+					sigInf.label += ')';
+					ret.signatures.push(sigInf);
+				}
 				if (!(t instanceof BlitzFunction)) continue;
 				if (t.lcname == document.getText(wr).toLowerCase()) {
 					let sigInf = new vscode.SignatureInformation(t.declaration);
@@ -1317,9 +1340,9 @@ class SignatureHelpProvider implements vscode.SignatureHelpProvider {
 					}
 					sigInf.documentation = t.stub?.description.concat(t.stub.parameters).join('  \n');
 					ret.signatures.push(sigInf);
-					ret.activeParameter = 0;
 				}
 			}
+			ret.activeParameter = 0;
 		}
 		if (context.isRetrigger) {
 			// quit if line changed or moved before start of parameters

@@ -322,7 +322,7 @@ function generateTokens(uri: vscode.Uri, text: string): BlitzToken[] {
 			if (tn.length > 0) cType = new BlitzType(tn, uri, oline.trim().split(';')[0], lineRange);
 		}
 		if (cType && tline.startsWith('field')) {
-			tline.substring(5, startOfComment(tline)).trim().split(',').forEach(val => {
+			oline.trimStart().substring(5, startOfComment(oline.trimStart())).trim().split(',').forEach(val => {
 				if (val.length > 0) {
 					const field = new BlitzVariable(removeType(val), uri, 'Field ' + val, lineRange, 'field', extractType(val)[1]);
 					field.description = oline.substring(startOfComment(oline) + 1).trim();
@@ -1147,11 +1147,11 @@ class CompletionItemProvider implements vscode.CompletionItemProvider {
 		const r: vscode.CompletionItem[] = [];
 
 		// not in comments
-		if (position.character >= startOfComment(document.lineAt(position.line).text)) return undefined;
+		if (position.character >= startOfComment(document.lineAt(position).text)) return undefined;
 
+		const pwr = document.getWordRangeAtPosition(position.translate(0, -2));
 		// Fields of type
 		if (context.triggerCharacter == '\\') {
-			const pwr = document.getWordRangeAtPosition(new vscode.Position(position.line, position.character - 2));
 			if (pwr) {
 				const par = document.getText(pwr);
 				// look up type of parent
@@ -1166,7 +1166,7 @@ class CompletionItemProvider implements vscode.CompletionItemProvider {
 								typename = loc.dataType;
 							}
 						});
-					} else if (t instanceof BlitzType && document.getText(new vscode.Range(pwr?.start.translate(0, -1), pwr?.start))) {
+					} else if (t instanceof BlitzType /*&& document.getText(new vscode.Range(pwr?.start.translate(0, -1), pwr?.start))*/) {
 						for (const f of t.fields) {
 							if (f.lcname == par) {
 								typename = f.dataType;
@@ -1188,11 +1188,11 @@ class CompletionItemProvider implements vscode.CompletionItemProvider {
 		}
 
 		// Types
-		if (context.triggerCharacter == '.') {
-			if (position.character >= 2 && document.lineAt(position.line).text[position.character - 2].match(/\w/)) {
-				for (const t of tokens) {
-					if (t.type == 'type') r.push(new vscode.CompletionItem(t.oname, this._typeToKind(t.type)));
-				}
+		if ((context.triggerCharacter == '.' && position.character >= 2
+			&& document.lineAt(position.line).text[position.character - 2].match(/\w/))
+			|| document.getText(pwr).toLowerCase().match(/^new$|^each$|^first$|^last$/)) {
+			for (const t of tokens) {
+				if (t.type == 'type') r.push(new vscode.CompletionItem(t.oname, this._typeToKind(t.type)));
 			}
 			return new vscode.CompletionList(r);
 		}
@@ -1246,6 +1246,7 @@ class CompletionItemProvider implements vscode.CompletionItemProvider {
 			let ci = new vscode.CompletionItem({label: stub.name, detail: stub.declaration.substring(8).includes('(') ? '()' : ''}, vscode.CompletionItemKind.Function);
 			ci.documentation = stub.description.join('  \n');
 			if (usebrackets || stub.declaration.substring(9).includes('(')) ci.insertText = new vscode.SnippetString(stub.name + '($0)');
+			else ci.insertText = stub.name + ' ';
 			if (stub.name == 'Dim') ci.insertText = new vscode.SnippetString('Dim ${1:array_name}(${0:maxindex0...})');
 			ci.command = {
 				title: 'Trigger Parameter Hints',

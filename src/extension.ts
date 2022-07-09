@@ -931,7 +931,7 @@ class BlitzHoverProvider implements vscode.HoverProvider {
 				def = '```\n' + stub.declaration + '\n```';
 				desc.appendMarkdown('\n#### Parameters\n');
 				stub.parameters.forEach((p) => {
-					const fsp = p.trimStart().indexOf(' ');
+					const fsp = (p.trimStart() + ' ').indexOf(' ');
 					desc.appendMarkdown('\n `' + p.trimStart().substring(0, fsp) + '` ' + p.trim().substring(fsp) + '  \n');
 
 				});

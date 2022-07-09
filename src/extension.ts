@@ -562,11 +562,17 @@ export function activate(context: vscode.ExtensionContext) {
 
 	context.subscriptions.push(vscode.commands.registerCommand('extension.blitz3d.generatestubs', generateStubs));
 
+	vscode.workspace.getConfiguration('files.encoding', {languageId: 'blitz3d'}).update('files.encoding','windows1250', vscode.ConfigurationTarget.Global, true)
+
 	updateBlitzPath();
 	stubpath = context.asAbsolutePath('stubs.bb')
 	let stubdoc = readFileSync(stubpath);
 	stubs = loadDefaultStubs(stubdoc);
 	console.log('Blitz3D extension activated.');
+}
+
+export function deactivate(context: vscode.ExtensionContext) {
+	vscode.workspace.getConfiguration('files.encoding', {languageId: 'blitz3d'}).update('files.encoding', undefined, vscode.ConfigurationTarget.Global, true)
 }
 
 function generateStubs() {

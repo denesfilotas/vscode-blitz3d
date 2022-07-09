@@ -1338,7 +1338,6 @@ class SignatureHelpProvider implements vscode.SignatureHelpProvider {
 						}
 						sigInf.label += ')';
 						ret.signatures.push(sigInf);
-						ret.activeParameter++;
 						break chars;
 					}
 					if (!(t instanceof BlitzFunction)) continue;

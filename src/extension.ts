@@ -1244,7 +1244,7 @@ class CompletionItemProvider implements vscode.CompletionItemProvider {
 			let ci = new vscode.CompletionItem({label: stub.name, detail: stub.declaration.substring(8).includes('(') ? '()' : ''}, vscode.CompletionItemKind.Function);
 			ci.documentation = stub.description.join('  \n');
 			if (usebrackets || stub.declaration.substring(9).includes('(')) ci.insertText = new vscode.SnippetString(stub.name + '($0)');
-			if (stub.name == 'Dim') ci.insertText = new vscode.SnippetString('Dim ${1:array_name}(${0:maxindex0,...})');
+			if (stub.name == 'Dim') ci.insertText = new vscode.SnippetString('Dim ${1:array_name}(${0:maxindex0...})');
 			ci.command = {
 				title: 'Trigger Parameter Hints',
 				command: 'editor.action.triggerParameterHints'
@@ -1305,76 +1305,76 @@ class DefinitionProvider implements vscode.DefinitionProvider{
 }
 
 class SignatureHelpProvider implements vscode.SignatureHelpProvider {
+
 	static startPosition: vscode.Position | undefined;
+
+
 	provideSignatureHelp(document: vscode.TextDocument, position: vscode.Position, token: vscode.CancellationToken, context: vscode.SignatureHelpContext): vscode.ProviderResult<vscode.SignatureHelp> {
-		let ret = context.activeSignatureHelp ? context.activeSignatureHelp : new vscode.SignatureHelp();
+		let ret = new vscode.SignatureHelp();
 		const tokens = generateTokens(document.uri, document.getText());
-		const wr = document.getWordRangeAtPosition(position.translate(0, -2));
-		if (context.triggerCharacter == '(' || context.triggerKind == vscode.SignatureHelpTriggerKind.Invoke) {
-			SignatureHelpProvider.startPosition = position;
-			if (!wr) return undefined;
-			for (const stub of stubs) {
-				if (stub.declaration.toLowerCase().match(document.getText(wr).toLowerCase())) {
-					let sigInf = new vscode.SignatureInformation(stub.declaration);
-					for (const param of stub.parameters) {
-						sigInf.parameters.push(new vscode.ParameterInformation(param.trim().substring(0, param.trim().indexOf(' '))));
+		let line = document.lineAt(position).text;
+		if (position.character >= startOfComment(line)) return undefined;
+		line = line.substring(0, position.character).trim().toLowerCase();
+		let wend = line.length;
+		let pc = 0;
+		chars: for (let i = line.length - 1; i >= 0; i--) {
+			const c = line.charAt(i);
+			if (c == '"' || isInString(line, i)) continue;
+			if (c == ',') ret.activeParameter++;
+			if (c == ')') pc++;
+			if (c == '(') pc--;
+			if ((!c.match(/\w/) || i == 0)) {
+				const word = line.substring(i + (i == 0 ? 0 : 1), wend);
+				if (pc < 0)
+				for (const t of tokens) {
+					if (t instanceof BlitzDimmedArray && t.lcname == word && !document.lineAt(position).text.toLowerCase().startsWith('dim')) {
+						let sigInf = new vscode.SignatureInformation('(element) ' + t.oname + '(index0');
+						sigInf.parameters.push(new vscode.ParameterInformation('index0'));
+						for (let i = 1; i < t.dimension; i++) {
+							sigInf.label += ', index' + i;
+							sigInf.parameters.push(new vscode.ParameterInformation('index' + i));					
+						}
+						sigInf.label += ')';
+						ret.signatures.push(sigInf);
+						ret.activeParameter++;
+						break chars;
 					}
-					ret.signatures.push(sigInf);
-					ret.activeParameter = 0;
+					if (!(t instanceof BlitzFunction)) continue;
+					if (t.lcname == word) {
+						let sigInf = new vscode.SignatureInformation(t.declaration);
+						for (const l of t.locals) if (l.storageType == 'param') {
+							sigInf.parameters.push(new vscode.ParameterInformation(l.oname + (l.dataType == '(%)' ? '' : ('#$%'.indexOf(l.dataType) == -1 ? '.' : '') + l.dataType), l.description));
+						}
+						sigInf.documentation = t.stub?.description.concat(t.stub.parameters).join('  \n');
+						ret.signatures.push(sigInf);
+						break chars;
+					}
 				}
-			}
-			for (const t of tokens) {
-				if (t instanceof BlitzDimmedArray && t.lcname == document.getText(wr).toLowerCase()) {
-					let sigInf = new vscode.SignatureInformation('(element) ' + t.oname + '(index0');
-					sigInf.parameters.push(new vscode.ParameterInformation('index0'));
-					for (let i = 1; i < t.dimension; i++) {
-						sigInf.label += ', index' + i;
+				if (word == 'dim') {
+					const nameStart = line.indexOf(' ', i + 2);
+					const nameEnd = line.indexOf('(', nameStart + 1);
+					const arrname = nameEnd == -1 ? 'array_name' : line.substring(nameStart, nameEnd).trim();
+					let sigInf = new vscode.SignatureInformation('(builtin) Dim ' + arrname + '(');
+					if (nameEnd == -1) sigInf.parameters.push(new vscode.ParameterInformation(arrname));
+					for (let i = 0; i < ret.activeParameter + 1; i++) {
+						sigInf.label += 'index' + i + ', ';
 						sigInf.parameters.push(new vscode.ParameterInformation('index' + i));					
 					}
-					sigInf.label += ')';
+					sigInf.label += '...)';
 					ret.signatures.push(sigInf);
+					break chars;
 				}
-				if (!(t instanceof BlitzFunction)) continue;
-				if (t.lcname == document.getText(wr).toLowerCase()) {
-					let sigInf = new vscode.SignatureInformation(t.declaration);
-					for (const l of t.locals) if (l.storageType == 'param') {
-						sigInf.parameters.push(new vscode.ParameterInformation(l.oname + (l.dataType == '(%)' ? '' : ('#$%'.indexOf(l.dataType) == -1 ? '.' : '') + l.dataType), l.description));
+				for (const stub of stubs) {
+					if (stub.name.toLowerCase() == word && (stub.declaration.indexOf('(', 2) == -1 || pc < 0)) {
+						let sigInf = new vscode.SignatureInformation(stub.declaration);
+						for (const param of stub.parameters) {
+							sigInf.parameters.push(new vscode.ParameterInformation(param.trim().substring(0, param.trim().indexOf(' '))));
+						}
+						ret.signatures.push(sigInf);
+						break chars;
 					}
-					sigInf.documentation = t.stub?.description.concat(t.stub.parameters).join('  \n');
-					ret.signatures.push(sigInf);
 				}
-			}
-			ret.activeParameter = 0;
-		}
-		if (context.isRetrigger) {
-			// quit if line changed or moved before start of parameters
-			if (SignatureHelpProvider.startPosition && (position.isBefore(SignatureHelpProvider.startPosition) || position.line > SignatureHelpProvider.startPosition.line)) return undefined;
-			// quit if closing bracket reached
-			if (document.getText(new vscode.Range(position.translate(0, -1), position)) == ')') return undefined;
-			const line = document.lineAt(position.line).text;
-			let lb = line.substring(0, position.character).trim();
-			let fn = lb.substring(0, lb.lastIndexOf('(') == -1 ? lb.length - 1 : lb.lastIndexOf('('));
-			fn = fn.substring(fn.lastIndexOf(' ') + 1).toLowerCase();
-			// TODO quit if end of all parameters reached when no parenthesis
-			lb = lb.substring(lb.lastIndexOf('('));
-			let cnt = 0;
-			while (lb.indexOf(',') >= 0) {
-				cnt++;
-				lb = lb.substring(lb.indexOf(',') + 1);
-			}
-			ret.activeParameter = cnt;
-		}
-		// TODO implement functions that don't need parenthesis
-		else if (context.triggerCharacter == ' ') {
-			SignatureHelpProvider.startPosition = position;
-			if (!wr) return undefined;
-			for (const stub of stubs) {
-				if (stub.declaration.indexOf('(', 2) == -1 && stub.name.toLowerCase() == document.getText(wr).toLowerCase()) {
-					let sigInf = new vscode.SignatureInformation(stub.declaration);
-					sigInf.documentation = stub.parameters.join('  \n');
-					ret.signatures.push(sigInf);
-					ret.activeParameter = 0;
-				}
+				wend = i;
 			}
 		}
 		return ret;

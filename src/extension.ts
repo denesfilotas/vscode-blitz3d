@@ -1149,7 +1149,7 @@ class CompletionItemProvider implements vscode.CompletionItemProvider {
 		// not in comments
 		if (position.character >= startOfComment(document.lineAt(position).text)) return undefined;
 
-		const pwr = document.getWordRangeAtPosition(position.translate(0, -2));
+		const pwr = position.character >= 2 ? document.getWordRangeAtPosition(position.translate(0, -2)) : undefined;
 		// Fields of type
 		if (context.triggerCharacter == '\\') {
 			if (pwr) {

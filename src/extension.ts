@@ -607,6 +607,7 @@ function updateDiagnostics(document: vscode.TextDocument) {
 	let diagnostics: vscode.Diagnostic[] = []
 
 	// check for colon usage
+	/*
 	lines: for (let i = 0; i < document.lineCount; i++) {
 		const line = document.lineAt(i).text;
 		let instring = false;
@@ -620,6 +621,7 @@ function updateDiagnostics(document: vscode.TextDocument) {
 			});
 		}
 	}
+	*/
 
 	// implement TODOs
 	const todotype = vscode.workspace.getConfiguration('blitz3d.editor').get<string>('UseTodos');

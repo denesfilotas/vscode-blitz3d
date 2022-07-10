@@ -527,8 +527,8 @@ export function activate(context: vscode.ExtensionContext) {
 	if (vscode.window.activeTextEditor) {
 		if (vscode.window.activeTextEditor.document.languageId == 'blitz3d') updateDiagnostics(vscode.window.activeTextEditor.document);
 	}
-	context.subscriptions.push(vscode.workspace.onDidChangeTextDocument(event => {
-		if (vscode.window.activeTextEditor && vscode.window.activeTextEditor.document.languageId == 'blitz3d') updateDiagnostics(event.document);
+	context.subscriptions.push(vscode.workspace.onDidSaveTextDocument(document => {
+		if (vscode.window.activeTextEditor && vscode.window.activeTextEditor.document.languageId == 'blitz3d') updateDiagnostics(document);
 	}));
 
 	context.subscriptions.push (

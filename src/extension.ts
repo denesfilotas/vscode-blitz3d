@@ -15,6 +15,35 @@ function updateBlitzPath() {
 	blitzpath = config ? config : 'C:\\Program Files (x86)\\Blitz3D';
 }
 
+function showErrorOnCompile(stdout: string, stderr: string) {
+	if (stderr.length > 0) {
+		vscode.window.showErrorMessage('Your path does not contain the blitzcc command. Please set BlitzPath in the extension settings correctly.', 'Go to settings', 'View error').then(val => {
+			switch (val) {
+				case 'View error':
+					vscode.window.showErrorMessage('Your path does not contain the blitzcc command. Please set BlitzPath in the extension settings correctly.', {detail: 'Error: ' + stderr, modal: true});
+					break;
+				case 'Go to settings':
+					vscode.commands.executeCommand('workbench.action.openSettings', 'blitz3d.installation.BlitzPath')
+					break;
+			}
+		});
+	} else {
+		let msg = '';
+		if (stdout.trim() == "Can't find blitzpath environment variable") msg = 'BlitzPath is missing from your environment variables. Please set BlitzPath in the extension settings correctly.';
+		else if (stdout.trim() == "Unable to open linker.dll") msg = 'BlitzPath is configured incorrectly. Please set BlitzPath in the extension settings correctly.';
+		else msg = 'Failed to run file: ' + stdout.substring(stdout.lastIndexOf(':') + 1);
+		vscode.window.showErrorMessage(msg, 'Go to settings', 'View output').then(val => {
+			switch (val) {
+				case 'View output':
+					vscode.window.showErrorMessage(msg, {detail: 'Output: ' + stdout, modal: true});
+				case 'Go to settings':
+					vscode.commands.executeCommand('workbench.action.openSettings', 'blitz3d.installation.BlitzPath')
+					break;
+			}
+		});
+	}
+}
+
 class BlitzStub {
 	name: string = '';
     declaration: string = '';
@@ -607,7 +636,12 @@ function generateStubs() {
 		ws.write('end function\n');
 	})
 	ws.close();
-	vscode.window.showInformationMessage('Stubs generated from installation folder.');
+	vscode.window.showInformationMessage('Stubs generated from installation folder. Reload window for changes to take effect', 'Reload')
+	.then((val) => {
+		if (val) {
+			vscode.commands.executeCommand('workbench.action.reloadWindow');
+		}
+	});
 }
 
 function updateDiagnostics(document: vscode.TextDocument) {
@@ -655,8 +689,7 @@ function updateDiagnostics(document: vscode.TextDocument) {
 	}
 	cp.exec('blitzcc -c ' + document.fileName, env, (err, sout, serr) => {
 		if (err) {
-			if (sout.trim() == "Can't find blitzpath environment variable") vscode.window.showErrorMessage('BlitzPath is missing from your environment variables. Please set BlitzPath in the extension settings correctly.');
-			else if (sout.trim() == "Unable to open linker.dll") vscode.window.showErrorMessage('BlitzPath is configured incorrectly. Please set BlitzPath in the extension settings correctly.');
+			showErrorOnCompile(sout, serr);
 			const lines = sout.toLowerCase().split(/\r\n|\r|\n/);
 			for (const l of lines) {
 				if (l.indexOf(':') >= 0 && !l.startsWith('compiling')) {
@@ -846,26 +879,7 @@ class Blitz3DConfigurationProvider implements vscode.DebugConfigurationProvider 
 		}
 		cp.exec(cmd, env, (err, stdout, stderr) => {
 			if (err) {
-				if (stderr.length > 0) {
-					vscode.window.showErrorMessage('Your path does not contain the blitzcc command. Please set BlitzPath in the extension settings correctly.', 'View error', 'Go to settings').then(val => {
-						switch (val) {
-							case 'View error':
-								vscode.window.showErrorMessage('Your path does not contain the blitzcc command. Please set BlitzPath in the extension settings correctly.', {detail: 'Error: ' + stderr, modal: true});
-								break;
-							case 'Go to settings':
-								vscode.window.showInformationMessage('Not supported yet');
-								break;
-						}
-					});
-				} else {
-					let msg = '';
-					if (stdout.trim() == "Can't find blitzpath environment variable") msg = 'BlitzPath is missing from your environment variables. Please set BlitzPath in the extension settings correctly.';
-					else if (stdout.trim() == "Unable to open linker.dll") msg = 'BlitzPath is configured incorrectly. Please set BlitzPath in the extension settings correctly.';
-					else msg = 'Failed to run file: ' + stdout.substring(stdout.lastIndexOf(':') + 1);
-					vscode.window.showErrorMessage(msg, 'View output').then(val => {
-						if (val) vscode.window.showErrorMessage(msg, {detail: 'Output: ' + stdout, modal: true});
-					});
-				}
+				showErrorOnCompile(stdout, stderr);
 			}
 		})
 		return config;

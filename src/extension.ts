@@ -483,8 +483,7 @@ function showSampleBrowser(viewpath: string) {
 		if (chosen == '..') viewpath = viewpath.substring(0, viewpath.lastIndexOf(path.sep));
 		else viewpath = viewpath + path.sep + chosen;
 		if (chosen?.endsWith('.bb')) {
-			vscode.window.showInformationMessage('Opening ' + chosen + ' from installation folder. Overwrtiting the file causes data loss.');
-			vscode.workspace.openTextDocument(vscode.Uri.file(viewpath)).then((document) => {vscode.window.showTextDocument(document)});
+			vscode.workspace.openTextDocument(vscode.Uri.parse('bbdoc:' + viewpath, true)/*vscode.Uri.file(viewpath)*/).then((document) => {vscode.window.showTextDocument(document)});
 		} else {
 			showSampleBrowser(viewpath);
 		}
@@ -561,6 +560,8 @@ export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(vscode.languages.registerSignatureHelpProvider('blitz3d', new SignatureHelpProvider(), '(', ' '));
 
 	context.subscriptions.push(vscode.commands.registerCommand('extension.blitz3d.generatestubs', generateStubs));
+
+	context.subscriptions.push(vscode.workspace.registerTextDocumentContentProvider('bbdoc', new TextDocumentContentProvider()));
 
 	vscode.workspace.getConfiguration('files.encoding', {languageId: 'blitz3d'}).update('files.encoding','windows1250', vscode.ConfigurationTarget.Global, true)
 
@@ -1387,4 +1388,12 @@ class SignatureHelpProvider implements vscode.SignatureHelpProvider {
 		}
 		return ret;
 	}
+}
+
+class TextDocumentContentProvider implements vscode.TextDocumentContentProvider {
+	
+	provideTextDocumentContent(uri: vscode.Uri, token: vscode.CancellationToken): vscode.ProviderResult<string> {
+		return readFileSync(uri.fsPath).toString();
+	}
+
 }

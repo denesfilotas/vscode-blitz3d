@@ -4,6 +4,18 @@ This extension enables language support for the BlitzBasic language and extends 
 The ability to run programs and detect errors is supported on Windows only. Cross-platform Blitz3D versions are not supported yet, though most of the functionality is available on all platforms.
 > Note: This extension is in alpha phase. Bug-free experience cannot be guaranteed.
 
+
+## Release Notes
+
+This update adds the following features:
+
+ * Dimmed arrays are now supported, with proper code completion and signature help
+ * Type detection improved
+ * Added command to open examples in the editor
+ * Set default encoding to Windows 1250 (can be changed in settings.json)
+
+> To see all the changes, check the [changelog](CHANGELOG.md) or the [GitHub repository](https://github.com/denesfilotas/vscode-blitz3d).
+
 ## Features
 
 The extension provides the following functionalities:
@@ -12,11 +24,12 @@ The extension provides the following functionalities:
 - Semantic highlighting
 - Basic IntelliSense suggestions
 - Document symbols tree
-- Signature help (still in development)
+- Signature help
 - Usage of the built-in debugger GUI
 - Added functionality for documentation
 - Ability to set the default file to run in launch.json
 - First compile error can be seen on every save
+- Command for browsing the builtin code examples
 
 > Note: The extension uses the Blitz3D default compiler for Windows. Due to its limitations, information of runtime errors cannot be extracted. This is not a loss of functionality as the default IDE behaves similarly.
 
@@ -47,13 +60,5 @@ See contributed settings in the `Feature Contributions` tab.
 
 ## Known Issues
 
- * Field declarations are not marked as fields semantically.
  * Colons are not supported. Using a colon can cause unexpected behaviour.
  * Hangs and unexpected behaviour (without code loss) can be experienced rarely
-
-## Release Notes
-This update adds the following features:
- * Dimmed arrays are now supported, with proper code completion and signature help
- * Type detection improved
- * Added command to open examples in the editor
-> To see all the changes, check the [changelog](CHANGELOG.md) or the [GitHub repository](https://github.com/denesfilotas/vscode-blitz3d).

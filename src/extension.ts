@@ -374,7 +374,7 @@ function generateTokens(uri: vscode.Uri, text: string): BlitzToken[] {
 				if (val.length > 0) {
 					const field = new BlitzVariable(removeType(val), uri, 'Field ' + val, lineRange, 'field', extractType(val)[1]);
 					field.description = oline.substring(startOfComment(oline) + 1).trim();
-					field.matchBefore = /(Field\s+|\\)$/;
+					field.matchBefore = /(Field\s.*|\\)$/i;
 					field.type = 'field';
 					cType?.fields.push(field);
 				}
@@ -993,7 +993,7 @@ class BlitzHoverProvider implements vscode.HoverProvider {
 
 		// check if hovered over a field
 		let typename: string | undefined;
-		if (wr.start.character > 0) {
+		if (wr.start.character > 1) {
 			const x = document.getText(new vscode.Range(wr.start.translate(0, -1), wr.start));
 			if (x == '\\') {
 				const pwr = document.getWordRangeAtPosition(wr.start.translate(0, -2));
@@ -1024,23 +1024,6 @@ class BlitzHoverProvider implements vscode.HoverProvider {
 
 		let newdef = '', priornewdef = '';
 		for (const t of tokens) {
-			if (def == t.lcname) {
-				if (t.matchBefore && !line.substring(0, wr.start.character).match(t.matchBefore)) continue;
-				if (t.matchAfter && !line.substring(wr.end.character).match(t.matchAfter)) continue;
-				newdef = '```\n' + t.declaration + '\n```';
-				if (t instanceof BlitzFunction && t.stub /*&& '#$%. ('.indexOf(t.declaration.charAt(t.name.length + 9)) >= 0*/) {
-					t.stub.description.forEach((descLine) => {
-						desc.appendMarkdown(descLine);
-					});
-					if (t.stub.parameters.length > 0) desc.appendMarkdown('\n#### Parameters\n');
-					t.stub.parameters.forEach((p) => {
-						desc.appendMarkdown(p + '  \n');
-					});
-					if (t.uri != document.uri) dl = 'Defined in ' + t.uri.path.substring(t.uri.path.lastIndexOf('/') + 1);
-				}
-				//if (t instanceof BlitzVariable && t.description) desc.push(t.description);
-				if (!(t instanceof BlitzVariable)) break; // Variables can be dimmed
-			}
 			if (t instanceof BlitzFunction && t.uri == document.uri && position.isAfter(t.declarationRange.start) && position.isBefore(t.endPosition)) {
 				t.locals.forEach((loc) => {
 					if (def == loc.lcname && !((loc.matchBefore && !line.substring(0, wr.start.character).match(loc.matchBefore)) || (loc.matchAfter && !line.substring(wr.end.character).match(loc.matchAfter)))) {
@@ -1058,6 +1041,23 @@ class BlitzHoverProvider implements vscode.HoverProvider {
 						dl = 'Defined in Type ' + t.oname;
 					}
 				});
+			}
+			if (def == t.lcname) {
+				if (t.matchBefore && !line.substring(0, wr.start.character).match(t.matchBefore)) continue;
+				if (t.matchAfter && !line.substring(wr.end.character).match(t.matchAfter)) continue;
+				newdef = '```\n' + t.declaration + '\n```';
+				if (t instanceof BlitzFunction && t.stub /*&& '#$%. ('.indexOf(t.declaration.charAt(t.name.length + 9)) >= 0*/) {
+					t.stub.description.forEach((descLine) => {
+						desc.appendMarkdown(descLine);
+					});
+					if (t.stub.parameters.length > 0) desc.appendMarkdown('\n#### Parameters\n');
+					t.stub.parameters.forEach((p) => {
+						desc.appendMarkdown(p + '  \n');
+					});
+					if (t.uri != document.uri) dl = 'Defined in ' + t.uri.path.substring(t.uri.path.lastIndexOf('/') + 1);
+				}
+				//if (t instanceof BlitzVariable && t.description) desc.push(t.description);
+				if (!(t instanceof BlitzVariable)) break; // Variables can be dimmed
 			}
 		}
 		if (priornewdef.length > 0) def = priornewdef;

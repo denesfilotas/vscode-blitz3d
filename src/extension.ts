@@ -547,7 +547,6 @@ export function activate(context: vscode.ExtensionContext) {
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand('extension.blitz3d.openExample', () => {
-			updateBlitzPath();
 			const cpath = path.join(blitzpath, 'help', 'commands') + path.sep;
 			vscode.window.showQuickPick(['2D command examples', '3D command examples', 'Samples']).then((category) => {
 				switch(category) {
@@ -573,9 +572,9 @@ export function activate(context: vscode.ExtensionContext) {
 		})
 	);
 
-	context.subscriptions.push (
-		vscode.debug.registerDebugConfigurationProvider('blitz3d', new Blitz3DConfigurationProvider())
-	);
+	context.subscriptions.push(vscode.workspace.onDidChangeConfiguration(event => updateBlitzPath));
+
+	context.subscriptions.push(vscode.debug.registerDebugConfigurationProvider('blitz3d', new Blitz3DConfigurationProvider()));
 
 	context.subscriptions.push(vscode.languages.registerDocumentSemanticTokensProvider('blitz3d', new DocumentSemanticTokensProvider(), legend));
 
@@ -607,7 +606,6 @@ export function deactivate(context: vscode.ExtensionContext) {
 }
 
 function generateStubs() {
-	updateBlitzPath();
 	const cpath = path.join(blitzpath, 'help', 'commands')
 	let stubs: BlitzStub[] = [];
 	let ws = createWriteStream(stubpath);
@@ -681,7 +679,6 @@ function updateDiagnostics(document: vscode.TextDocument) {
 	// TODO check for errors by ourselves
 
 	// run compiler with env got from config
-	updateBlitzPath();
 	const env = process.env;
 	if (blitzpath.length > 0) {
 		env['PATH'] += path.delimiter + path.join(blitzpath, 'bin');
@@ -871,7 +868,6 @@ class Blitz3DConfigurationProvider implements vscode.DebugConfigurationProvider 
 		}
 		// implementing debug call in config resolver since idfk why my js doesn't launch
 		const cmd = 'blitzcc -d "' + config.bbfile + '"';
-		updateBlitzPath()
 		const env = process.env;
 		if (blitzpath.length > 0) {
 			env['PATH'] += path.delimiter + path.join(blitzpath, 'bin');

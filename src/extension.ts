@@ -13,6 +13,14 @@ let blitzpath = 'C:\\Program Files (x86)\\Blitz3D';
 function updateBlitzPath() {
 	const config: string | undefined = vscode.workspace.getConfiguration('blitz3d.installation').get('BlitzPath');
 	blitzpath = config ? config : 'C:\\Program Files (x86)\\Blitz3D';
+	const env = process.env;
+	if (blitzpath.length > 0) {
+		env['PATH'] += path.delimiter + path.join(blitzpath, 'bin');
+		env['BLITZPATH'] = blitzpath;
+	}
+	cp.exec('blitzcc', env, (err, stdout, stderr) => {
+		if (err) showErrorOnCompile(stdout, stderr);
+	});
 }
 
 function showErrorOnCompile(stdout: string, stderr: string) {
@@ -41,7 +49,7 @@ function showErrorOnCompile(stdout: string, stderr: string) {
 				break;
 			default:
 				vscode.window.showErrorMessage('Failed to compile file: ' + stdout.substring(stdout.lastIndexOf(':') + 1), 'View output').then(val => {
-					if (val) vscode.window.showErrorMessage(msg, {
+					if (val) vscode.window.showErrorMessage('Failed to compile file', {
 						detail: 'Output: ' + stdout,
 						modal: true
 					});
@@ -696,7 +704,14 @@ function updateDiagnostics(document: vscode.TextDocument) {
 	}
 	cp.exec('blitzcc -c ' + document.fileName, env, (err, sout, serr) => {
 		if (err) {
-			showErrorOnCompile(sout, serr);
+			if (serr.length > 0
+				|| sout.trim() == "Can't find blitzpath environment variable"
+				|| sout.trim() == "Unable to open linker.dll")
+				diagnostics.push({
+					message: 'BlitzPath is configured incorrectly. Compilation is unavailable.',
+					range: new vscode.Range(0, 0, 0, 0),
+					severity: vscode.DiagnosticSeverity.Information
+				})
 			const lines = sout.toLowerCase().split(/\r\n|\r|\n/);
 			for (const l of lines) {
 				if (l.indexOf(':') >= 0 && !l.startsWith('compiling')) {

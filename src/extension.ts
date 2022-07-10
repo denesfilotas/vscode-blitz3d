@@ -20,27 +20,37 @@ function showErrorOnCompile(stdout: string, stderr: string) {
 		vscode.window.showErrorMessage('Your path does not contain the blitzcc command. Please set BlitzPath in the extension settings correctly.', 'Go to settings', 'View error').then(val => {
 			switch (val) {
 				case 'View error':
-					vscode.window.showErrorMessage('Your path does not contain the blitzcc command. Please set BlitzPath in the extension settings correctly.', {detail: 'Error: ' + stderr, modal: true});
+					vscode.window.showErrorMessage('Your path does not contain the blitzcc command. Please set BlitzPath in the extension settings correctly.', {
+						detail: 'Error: ' + stderr,
+						modal: true
+					});
 					break;
 				case 'Go to settings':
-					vscode.commands.executeCommand('workbench.action.openSettings', 'blitz3d.installation.BlitzPath')
+					vscode.commands.executeCommand('workbench.action.openSettings', 'blitz3d.installation.BlitzPath');
 					break;
 			}
 		});
 	} else {
 		let msg = '';
-		if (stdout.trim() == "Can't find blitzpath environment variable") msg = 'BlitzPath is missing from your environment variables. Please set BlitzPath in the extension settings correctly.';
-		else if (stdout.trim() == "Unable to open linker.dll") msg = 'BlitzPath is configured incorrectly. Please set BlitzPath in the extension settings correctly.';
-		else msg = 'Failed to run file: ' + stdout.substring(stdout.lastIndexOf(':') + 1);
-		vscode.window.showErrorMessage(msg, 'Go to settings', 'View output').then(val => {
-			switch (val) {
-				case 'View output':
-					vscode.window.showErrorMessage(msg, {detail: 'Output: ' + stdout, modal: true});
-				case 'Go to settings':
-					vscode.commands.executeCommand('workbench.action.openSettings', 'blitz3d.installation.BlitzPath')
-					break;
-			}
-		});
+		switch(stdout.trim()) {
+			case "Can't find blitzpath environment variable":
+				msg = 'BlitzPath is missing from your environment variables. Please set BlitzPath in the extension settings correctly.';
+				break;
+			case "Unable to open linker.dll":
+				msg = 'BlitzPath is configured incorrectly. Please set BlitzPath in the extension settings correctly.';
+				break;
+			default:
+				vscode.window.showErrorMessage('Failed to compile file: ' + stdout.substring(stdout.lastIndexOf(':') + 1), 'View output').then(val => {
+					if (val) vscode.window.showErrorMessage(msg, {
+						detail: 'Output: ' + stdout,
+						modal: true
+					});
+				})
+				return;
+		}
+		vscode.window.showErrorMessage(msg, 'Go to settings').then(val => {
+			if (val) vscode.commands.executeCommand('workbench.action.openSettings', 'blitz3d.installation.BlitzPath');
+		})
 	}
 }
 
@@ -572,7 +582,7 @@ export function activate(context: vscode.ExtensionContext) {
 		})
 	);
 
-	context.subscriptions.push(vscode.workspace.onDidChangeConfiguration(event => updateBlitzPath));
+	context.subscriptions.push(vscode.workspace.onDidChangeConfiguration(event => updateBlitzPath()));
 
 	context.subscriptions.push(vscode.debug.registerDebugConfigurationProvider('blitz3d', new Blitz3DConfigurationProvider()));
 

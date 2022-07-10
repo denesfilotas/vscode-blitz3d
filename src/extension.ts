@@ -1010,7 +1010,7 @@ class BlitzHoverProvider implements vscode.HoverProvider {
 									typename = loc.dataType;
 								}
 							});
-						} else if (t instanceof BlitzType && document.getText(new vscode.Range(pwr?.start.translate(0, -1), pwr?.start))) {
+						} else if (t instanceof BlitzType /*&& document.getText(new vscode.Range(pwr?.start.translate(0, -1), pwr?.start))*/) {
 							for (const f of t.fields) {
 								if (f.lcname == par) {
 									typename = f.dataType;

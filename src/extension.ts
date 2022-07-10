@@ -8,10 +8,11 @@ const tokenModifiers = new Map<string, number>();
 let diagnosticCollection: vscode.DiagnosticCollection;
 let stubs: BlitzStub[];
 let stubpath: string;
-export let blitzpath: string | undefined;
+let blitzpath = 'C:\\Program Files (x86)\\Blitz3D';
 
 function updateBlitzPath() {
-	blitzpath = vscode.workspace.getConfiguration('blitz3d.installation').get<string>('BlitzPath');
+	const config: string | undefined = vscode.workspace.getConfiguration('blitz3d.installation').get('BlitzPath');
+	blitzpath = config ? config : 'C:\\Program Files (x86)\\Blitz3D';
 }
 
 class BlitzStub {
@@ -477,7 +478,7 @@ const legend = (function () {
 function showSampleBrowser(viewpath: string) {
 	const files = readdirSync(viewpath);
 	const options = files.filter((val) => !val.includes('.') || val.endsWith('.bb'))
-	if (viewpath != blitzpath + path.sep + 'samples') options.push('..');
+	if (viewpath != path.join(blitzpath, 'samples')) options.push('..');
 	vscode.window.showQuickPick(options).then((chosen) => {
 		if (!chosen) return;
 		if (chosen == '..') viewpath = viewpath.substring(0, viewpath.lastIndexOf(path.sep));
@@ -518,7 +519,7 @@ export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(
 		vscode.commands.registerCommand('extension.blitz3d.openExample', () => {
 			updateBlitzPath();
-			const cpath = blitzpath ? (blitzpath + (blitzpath.endsWith(path.sep) ? '' : path.sep) + 'help' + path.sep + 'commands' + path.sep) : 'C:\\Program Files (x86)\\Blitz3D\\help\\commands\\';
+			const cpath = path.join(blitzpath, 'help', 'commands') + path.sep;
 			vscode.window.showQuickPick(['2D command examples', '3D command examples', 'Samples']).then((category) => {
 				switch(category) {
 					case '2D command examples':
@@ -536,7 +537,7 @@ export function activate(context: vscode.ExtensionContext) {
 						})
 						break;
 					default:
-						let viewpath = blitzpath + path.sep + 'samples';
+						let viewpath = path.join(blitzpath, 'samples');
 						showSampleBrowser(viewpath);
 				}
 			})
@@ -578,18 +579,18 @@ export function deactivate(context: vscode.ExtensionContext) {
 
 function generateStubs() {
 	updateBlitzPath();
-	const cpath = blitzpath ?  blitzpath + blitzpath.endsWith(path.sep) ? '' : path.sep + 'help' + path.sep + 'commands' + path.sep : 'C:\\Program Files (x86)\\Blitz3D\\help\\commands\\';
+	const cpath = path.join(blitzpath, 'help', 'commands')
 	let stubs: BlitzStub[] = [];
 	let ws = createWriteStream(stubpath);
-	const files2d = readdirSync(cpath + '2d_commands');
+	const files2d = readdirSync(path.join(cpath, '2d_commands'));
 	files2d.forEach((fileName) => {
-		const file = readFileSync(cpath + '2d_commands' + path.sep + fileName);
+		const file = readFileSync(path.join(cpath, '2d_commands', fileName));
 		let stub = generateStubFromDoc(file);
 		if (fileName != 'template.htm') stubs.push(stub);
 	})
-	const files3d = readdirSync(cpath + '3d_commands');
+	const files3d = readdirSync(path.join(cpath, '3d_commands'));
 	files3d.forEach((fileName) => {
-		const file = readFileSync(cpath + '3d_commands' + path.sep + fileName);
+		const file = readFileSync(path.join(cpath, '3d_commands', fileName));
 		let stub = generateStubFromDoc(file);
 		if (fileName != 'template.htm') stubs.push(stub);
 	})
@@ -648,8 +649,8 @@ function updateDiagnostics(document: vscode.TextDocument) {
 	// run compiler with env got from config
 	updateBlitzPath();
 	const env = process.env;
-	if (blitzpath && blitzpath.length > 0) {
-		env['PATH'] += path.delimiter + blitzpath + (blitzpath.endsWith(path.sep) ? '' : path.sep) + 'bin';
+	if (blitzpath.length > 0) {
+		env['PATH'] += path.delimiter + path.join(blitzpath, 'bin');
 		env['BLITZPATH'] = blitzpath;
 	}
 	cp.exec('blitzcc -c ' + document.fileName, env, (err, sout, serr) => {
@@ -837,10 +838,10 @@ class Blitz3DConfigurationProvider implements vscode.DebugConfigurationProvider 
 		}
 		// implementing debug call in config resolver since idfk why my js doesn't launch
 		const cmd = 'blitzcc -d "' + config.bbfile + '"';
-		const blitzpath = vscode.workspace.getConfiguration('blitz3d.installation').get<string>('BlitzPath');
+		updateBlitzPath()
 		const env = process.env;
-		if (blitzpath && blitzpath.length > 0) {
-			env['PATH'] += path.delimiter + blitzpath + (blitzpath.endsWith(path.sep) ? '' : path.sep) + 'bin';
+		if (blitzpath.length > 0) {
+			env['PATH'] += path.delimiter + path.join(blitzpath, 'bin');
 			env['BLITZPATH'] = blitzpath;	
 		}
 		cp.exec(cmd, env, (err, stdout, stderr) => {

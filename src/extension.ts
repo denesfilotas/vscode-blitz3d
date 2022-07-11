@@ -1247,7 +1247,7 @@ class CompletionItemProvider implements vscode.CompletionItemProvider {
 			if (t instanceof BlitzFunction) {
 				ci.label = {
 					label: t.oname,
-					detail: (t.returnType.charAt(0).match(/\w/) ? '.' : '') + t.returnType,
+					detail: (t.returnType.charAt(0).match(/\w/) ? '.' : '') + t.returnType + '()',
 					description: t.stub?.description.join(' ')
 				};
 				ci.insertText = new vscode.SnippetString(t.oname + '($0)');

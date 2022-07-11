@@ -202,7 +202,7 @@ function generateTokens(uri: vscode.Uri, text: string): BlitzToken[] {
 		// parse locals (or at least try)
 		if (tline.startsWith('local ')) {
 			const q = oline.trimStart().split('=')[0].trim();
-			const vars = q.substring(7, startOfComment(q)).trim().split(',');
+			const vars = q.substring(6, startOfComment(q)).trim().split(',');
 			for (const v of vars) {
 				if (v.length > 0) {
 					const bv = new BlitzVariable(
@@ -222,7 +222,7 @@ function generateTokens(uri: vscode.Uri, text: string): BlitzToken[] {
 		}
 		if (tline.startsWith('const ')) {
 			const q = oline.trimStart().split('=')[0].trim();
-			const vars = q.substring(7, startOfComment(q)).trim().split(',');
+			const vars = q.substring(6, startOfComment(q)).trim().split(',');
 			for (const v of vars) {
 				if (v.length > 0) {
 					let bv = new BlitzVariable(

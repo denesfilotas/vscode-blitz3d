@@ -52,12 +52,14 @@
             {
                 "title": "Debug program",
                 "category": "Blitz3D",
-                "command": "extension.blitz3d.debug"
+                "command": "extension.blitz3d.debug",
+                "enablement": "editorLangId == blitz3d"
             },
             {
                 "title": "Run without debugging",
                 "category": "Blitz3D",
-                "command": "extension.blitz3d.run"
+                "command": "extension.blitz3d.run",
+                "enablement": "editorLangId == blitz3d"
             },
             {
                 "title": "Generate BlitzDoc stubs",

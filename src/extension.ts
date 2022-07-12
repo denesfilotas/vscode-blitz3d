@@ -291,7 +291,8 @@ function generateTokens(uri: vscode.Uri, text: string): BlitzToken[] {
 						l = true;
 						break;
 					}
-				} else for (const t of r) {
+				}
+				if (!l) for (const t of r) {
 					if (t.lcname == removeType(tline.split('=')[0].trim())) {
 						l = true;
 						break;

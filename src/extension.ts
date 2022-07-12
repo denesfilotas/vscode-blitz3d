@@ -174,7 +174,12 @@ function generateTokens(uri: vscode.Uri, text: string): BlitzToken[] {
 					const wsfolder = vscode.workspace.workspaceFolders?.[0];
 					infilepath = wsfolder ? path.join(wsfolder.uri.path.substring(1), infile) : path.join(uri.path.substring(1, uri.path.lastIndexOf('/')), infile);
 				}
-				const intext = readFileSync(infilepath).toString();
+				let intext = '';
+				try {
+					intext = readFileSync(infilepath).toString();
+				} catch (err) {
+					intext = '';
+				}
 				if (intext.length > 0) r = r.concat(generateTokens(vscode.Uri.file(infilepath), intext));
 			}
 		}

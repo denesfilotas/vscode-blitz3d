@@ -647,7 +647,6 @@ function generateStubs() {
 		let stub = generateStubFromDoc(file);
 		if (fileName != 'template.htm') stubs.push(stub);
 	})
-	//console.log('stubs count: ' + stubs.length)
 	stubs.forEach((stub) => {
 		stub.description.forEach((desc) => {
 			ws.write(';; ' + desc + '\n');
@@ -1444,7 +1443,6 @@ class SignatureHelpProvider implements vscode.SignatureHelpProvider {
 				for (const stub of stubs) {
 					if (stub.name.toLowerCase() == word) {
 						const argCount = stub.parameters[0].match(/none/i) ? 0 : stub.declaration.replace(',[,', '[,').split(',').length;
-						console.log (stub.declaration + ' -> ' + argCount);
 						if ((stub.declaration.indexOf('(', 2) == -1 && ret.activeParameter < argCount) || pc < 0) {
 							let sigInf = new vscode.SignatureInformation(stub.declaration);
 							for (const param of stub.parameters) {

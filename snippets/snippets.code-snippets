@@ -69,5 +69,13 @@
             "End Type"
         ],
         "description": "Create new Type"
+    },
+    "Create function": {
+        "prefix": "function",
+        "body": [
+            "Function ${1:name}($2)",
+            "\t$0",
+            "End Function"
+        ]
     }
 }

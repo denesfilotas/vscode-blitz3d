@@ -966,19 +966,32 @@ class BlitzHoverProvider implements vscode.HoverProvider {
 		if (position.character >= startOfComment(line)) return undefined;
 
 		let def = document.getText(wr).toLowerCase();
-		// add following word on certain tokens
-		const nwr = wr ? document.getWordRangeAtPosition(new vscode.Position(wr?.end.line, wr?.end.character + 2)) : undefined;
-		if (nwr) {
-			const m = document.getText(nwr).toLowerCase().match(/if|function|type|select/)?.toString();
-			if (def == 'end' && m) {
-				def += ' ' + m;
-				wr = new vscode.Range(wr.start, nwr.end);
-			} else if (def == 'else' && m == 'if') {
-				def = 'else if';
-				wr = new vscode.Range(wr.start, nwr.end);
+		if (def == 'end' || def == 'else') {
+			// add following word on certain tokens
+			const nwr = document.getWordRangeAtPosition(wr.end.translate(0, 2));
+			if (nwr) {
+				const m = document.getText(nwr).toLowerCase().match(/if|function|type|select/)?.toString();
+				if (def == 'end' && m) {
+					def += ' ' + m;
+					wr = new vscode.Range(wr.start, nwr.end);
+				} else if (def == 'else' && m == 'if') {
+					def = 'else if';
+					wr = new vscode.Range(wr.start, nwr.end);
+				}
+			}
+		} else if (wr.start.character > 2 && def.match(/if|function|type|select/)) {
+			const nwr = document.getWordRangeAtPosition(wr.start.translate(0, -2));
+			if (nwr) {
+				const nw = document.getText(nwr).toLowerCase();
+				if (nw == 'end') {
+					def = nw + ' ' + def;
+					wr = new vscode.Range(nwr.start, wr.end);
+				} else if (nw == 'else' && def == 'if') {
+					def = 'else if';
+					wr = new vscode.Range(nwr.start, wr.end);
+				}
 			}
 		}
-
 		let dl = 'Defined in ' + document.fileName.substring(document.fileName.lastIndexOf(path.sep) + 1);
 		const example = new vscode.MarkdownString();
 		example.isTrusted = true;

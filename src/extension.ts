@@ -564,25 +564,33 @@ export function activate(context: vscode.ExtensionContext) {
 	);
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('extension.blitz3d.openExample', () => {
+		vscode.commands.registerCommand('extension.blitz3d.openExample', (command?: string) => {
 			const cpath = path.join(blitzpath, 'help', 'commands') + path.sep;
+			if (command) {
+				const commands2d = readdirSync(cpath + '2d_examples');
+				if (commands2d.includes(command + '.bb')) vscode.workspace.openTextDocument(vscode.Uri.parse('bbdoc:' + path.join(cpath, '2d_examples', command + '.bb'), true)).then((document) => {vscode.window.showTextDocument(document)});
+				else {
+					const commands3d = readdirSync(cpath + '3d_examples');
+					if (commands3d.includes(command + '.bb')) vscode.workspace.openTextDocument(vscode.Uri.parse('bbdoc:' + path.join(cpath, '3d_examples', command + '.bb'), true)).then((document) => {vscode.window.showTextDocument(document)});
+					else vscode.window.showWarningMessage('Could not find example for requested command.')
+				}
+				return;
+			}
 			vscode.window.showQuickPick(['2D command examples', '3D command examples', 'Samples']).then((category) => {
 				switch(category) {
 					case '2D command examples':
 						const commands2d = readdirSync(cpath + '2d_examples');
 						vscode.window.showQuickPick(commands2d).then((val) => {
-							vscode.workspace.openTextDocument({language: 'blitz3d', content: readFileSync(cpath + '2d_examples' + path.sep + val).toString().replace(/"media/gi, '"' + cpath + '2d_examples' + path.sep + 'media')})
-							.then((d) => {vscode.window.showTextDocument(d)}, () => {vscode.window.showErrorMessage('Unable to open example.')});
+							if (val) vscode.workspace.openTextDocument(vscode.Uri.parse('bbdoc:' + path.join(cpath, '2d_examples', val), true)).then((document) => {vscode.window.showTextDocument(document)});
 						})
 						break;
 					case '3D command examples':
 						const commands3d = readdirSync(cpath + '3d_examples');
 						vscode.window.showQuickPick(commands3d).then((val) => {
-							vscode.workspace.openTextDocument({language: 'blitz3d', content: readFileSync(cpath + '3d_examples' + path.sep + val).toString().replace(/"media/gi, '"' + cpath + '3d_examples' + path.sep + 'media')})
-							.then((d) => {vscode.window.showTextDocument(d)}, () => {vscode.window.showErrorMessage('Unable to open example.')});
+							if (val) vscode.workspace.openTextDocument(vscode.Uri.parse('bbdoc:' + path.join(cpath, '3d_examples', val), true)).then((document) => {vscode.window.showTextDocument(document)});
 						})
 						break;
-					default:
+					case 'Samples':
 						let viewpath = path.join(blitzpath, 'samples');
 						showSampleBrowser(viewpath);
 				}
@@ -969,6 +977,8 @@ class BlitzHoverProvider implements vscode.HoverProvider {
 		}
 
 		let dl = 'Defined in ' + document.fileName.substring(document.fileName.lastIndexOf(path.sep) + 1);
+		const example = new vscode.MarkdownString();
+		example.isTrusted = true;
 		for (const stub of stubs) {
 			if (stub.name.toLowerCase() == def) {
 				def = '```\n' + stub.declaration + '\n```';
@@ -983,8 +993,9 @@ class BlitzHoverProvider implements vscode.HoverProvider {
 					desc.appendMarkdown('\n' + descLine);
 				});
 				if(stub.example.length == 0) break;
-				desc.appendMarkdown('\n#### Example\n');
-				desc.appendCodeblock(stub.example.replace('\r\n', '  \n'));
+				// desc.appendMarkdown('\n#### Example\n');
+				//desc.appendCodeblock(stub.example.replace('\r\n', '  \n'));
+				example.appendMarkdown(`[Open example](command:extension.blitz3d.openExample?${encodeURIComponent(JSON.stringify(stub.name))})`)
 				dl = '';
 				break;
 			}
@@ -1069,6 +1080,7 @@ class BlitzHoverProvider implements vscode.HoverProvider {
 			contents: [
 				def,
 				desc,
+				example,
 				dl
 			]
 		}

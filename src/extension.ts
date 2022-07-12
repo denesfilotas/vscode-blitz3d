@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import * as cp from 'child_process';
-import { createWriteStream, readdirSync, readFileSync } from 'fs';
+import { createWriteStream, readdirSync, readFileSync, writeFile } from 'fs';
 import * as path from 'path';
 
 const tokenTypes = new Map<string, number>();
@@ -1389,15 +1389,15 @@ class SignatureHelpProvider implements vscode.SignatureHelpProvider {
 		const tokens = generateTokens(document.uri, document.getText());
 		let line = document.lineAt(position).text;
 		if (position.character >= startOfComment(line)) return undefined;
-		line = line.substring(0, position.character).trim().toLowerCase();
+		const wordend = document.getWordRangeAtPosition(position)?.end.character
+		const endc = wordend ? wordend : position.character;
+		line = line.substring(0, endc).trim().toLowerCase();
 		let wend = line.length;
 		let pc = 0;
+		let ps = [0];
 		chars: for (let i = line.length - 1; i >= 0; i--) {
 			const c = line.charAt(i);
 			if (c == '"' || isInString(line, i)) continue;
-			if (c == ',') ret.activeParameter++;
-			if (c == ')') pc++;
-			if (c == '(') pc--;
 			if ((!c.match(/\w/) || i == 0)) {
 				const word = line.substring(i + (i == 0 ? 0 : 1), wend);
 				if (pc < 0)
@@ -1411,6 +1411,7 @@ class SignatureHelpProvider implements vscode.SignatureHelpProvider {
 						}
 						sigInf.label += ')';
 						ret.signatures.push(sigInf);
+						ret.activeParameter = ps[0];
 						break chars;
 					}
 					if (!(t instanceof BlitzFunction)) continue;
@@ -1421,6 +1422,7 @@ class SignatureHelpProvider implements vscode.SignatureHelpProvider {
 						}
 						sigInf.documentation = t.stub?.description.concat(t.stub.parameters).join('  \n');
 						ret.signatures.push(sigInf);
+						ret.activeParameter = ps[0];
 						break chars;
 					}
 				}
@@ -1436,19 +1438,34 @@ class SignatureHelpProvider implements vscode.SignatureHelpProvider {
 					}
 					sigInf.label += '...)';
 					ret.signatures.push(sigInf);
+					ret.activeParameter = ps[0];
 					break chars;
 				}
 				for (const stub of stubs) {
-					if (stub.name.toLowerCase() == word && (stub.declaration.indexOf('(', 2) == -1 || pc < 0)) {
-						let sigInf = new vscode.SignatureInformation(stub.declaration);
-						for (const param of stub.parameters) {
-							sigInf.parameters.push(new vscode.ParameterInformation(param.trim().substring(0, param.trim().indexOf(' '))));
-						}
-						ret.signatures.push(sigInf);
-						break chars;
+					if (stub.name.toLowerCase() == word) {
+						const argCount = stub.parameters[0].match(/none/i) ? 0 : stub.declaration.replace(',[,', '[,').split(',').length;
+						console.log (stub.declaration + ' -> ' + argCount);
+						if ((stub.declaration.indexOf('(', 2) == -1 && ret.activeParameter < argCount) || pc < 0) {
+							let sigInf = new vscode.SignatureInformation(stub.declaration);
+							for (const param of stub.parameters) {
+								sigInf.parameters.push(new vscode.ParameterInformation(param.trim().substring(0, param.trim().indexOf(' '))));
+							}
+							ret.signatures.push(sigInf);
+							ret.activeParameter = ps[0];
+							break chars;
+						} else continue chars;
 					}
 				}
 				wend = i;
+			}
+			if (c == ',') ps[0]++;
+			if (c == ')') {
+				pc++;
+				ps.unshift(0);
+			}
+			if (c == '(')  {
+				pc--;
+				if (ps.length > 1) ps.shift();
 			}
 		}
 		return ret;

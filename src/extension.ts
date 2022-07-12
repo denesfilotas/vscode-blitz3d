@@ -952,9 +952,10 @@ function isInString(line:string, position: number) : boolean {
 class BlitzHoverProvider implements vscode.HoverProvider {
     public provideHover(document: vscode.TextDocument, position: vscode.Position, token: vscode.CancellationToken): vscode.ProviderResult<vscode.Hover> {
 		const desc = new vscode.MarkdownString();
-		const wr = document.getWordRangeAtPosition(position);
+		const iwr = document.getWordRangeAtPosition(position);
 		// not on whitespace
-		if (!wr) return undefined;
+		if (!iwr) return undefined;
+		let wr: vscode.Range = iwr;
 		// not on number literals
 		if (document.getText(wr).match(/^[0-9]+$/)) return undefined;
 		if (document.lineAt(position.line).text[position.character] == ' ') return undefined;
@@ -971,8 +972,10 @@ class BlitzHoverProvider implements vscode.HoverProvider {
 			const m = document.getText(nwr).toLowerCase().match(/if|function|type|select/)?.toString();
 			if (def == 'end' && m) {
 				def += ' ' + m;
+				wr = new vscode.Range(wr.start, nwr.end);
 			} else if (def == 'else' && m == 'if') {
 				def = 'else if';
+				wr = new vscode.Range(wr.start, nwr.end);
 			}
 		}
 
@@ -1082,7 +1085,8 @@ class BlitzHoverProvider implements vscode.HoverProvider {
 				desc,
 				example,
 				dl
-			]
+			],
+			range: wr
 		}
     }
 }

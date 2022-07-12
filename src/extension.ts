@@ -957,7 +957,7 @@ class BlitzHoverProvider implements vscode.HoverProvider {
 		if (!iwr) return undefined;
 		let wr: vscode.Range = iwr;
 		// not on number literals
-		if (document.getText(wr).match(/^[0-9]+$/)) return undefined;
+		if (document.getText(wr).match(/^\-?[0-9\.]+$/)) return undefined;
 		if (document.lineAt(position.line).text[position.character] == ' ') return undefined;
 		const line = document.lineAt(position).text;
 		// not in strings

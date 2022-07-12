@@ -196,7 +196,7 @@ function generateTokens(uri: vscode.Uri, text: string): BlitzToken[] {
 						oline.substring(0, startOfComment(oline)).split('=')[0].trim(),
 						lineRange,
 						'global',
-						extractType(q)[1]
+						extractType(q)
 					);
 					bv.description = oline.substring(startOfComment(oline) + 1).trim();
 					r.push(bv);
@@ -216,7 +216,7 @@ function generateTokens(uri: vscode.Uri, text: string): BlitzToken[] {
 						oline.split('=')[0].trim(),
 						lineRange,
 						'local',
-						extractType(q)[1]
+						extractType(q)
 					);
 					bv.description = oline.substring(startOfComment(oline) + 1).trim();
 					if (cFunction) {
@@ -236,7 +236,7 @@ function generateTokens(uri: vscode.Uri, text: string): BlitzToken[] {
 						oline.substring(0, startOfComment(oline)).trim(),
 						lineRange,
 						'local',
-						extractType(q)[1]
+						extractType(q)
 					);
 					bv.description = oline.substring(startOfComment(oline) + 1).trim();
 					if (cFunction) {
@@ -250,7 +250,7 @@ function generateTokens(uri: vscode.Uri, text: string): BlitzToken[] {
 		if (tline.startsWith('for ')) {
 			const iter = oline.trimStart().substring(3).split('=')[0].trim();
 			if (iter.length > 0) {
-				let dt = extractType(iter)[1]
+				let dt = extractType(iter)
 				let l = false;
 				if (cFunction) for (const tl of cFunction.locals) {
 					if (tl.lcname == removeType(tline.substring(4).split('=')[0].trim())) {
@@ -289,7 +289,7 @@ function generateTokens(uri: vscode.Uri, text: string): BlitzToken[] {
 			const pline = tline.split('=')[0].trim();
 			if (!(pline.includes(' ') || pline.includes('\\') || pline.includes('(') || pline.includes('['))) {
 
-				let dt = extractType(tline.split('=')[0].trim())[1]
+				let dt = extractType(tline.split('=')[0].trim())
 				let l = false;
 				if (cFunction) for (const tl of cFunction.locals) {
 					if (tl.lcname == removeType(tline.split('=')[0].trim())) {
@@ -346,7 +346,7 @@ function generateTokens(uri: vscode.Uri, text: string): BlitzToken[] {
 				if (prevLine.substring(0, startOfComment(prevLine)).trim() == '') cStub.description.push(prevLine.substring(startOfComment(prevLine) + 1).trim());
 			}
 			cFunction.stub = cStub;
-			const fType = extractType(fn)[1];
+			const fType = extractType(fn);
 			if (fType) cFunction.returnType = fType;
 
 			// parse parameters as local variables
@@ -358,7 +358,7 @@ function generateTokens(uri: vscode.Uri, text: string): BlitzToken[] {
 					for (const q of pars) {
 						const name = q.split('=')[0].trim();
 						if (q.trim().length > 0) {
-							const param = new BlitzVariable(removeType(name), uri, '(param) ' + q.trim(), lineRange, 'param', extractType(name)[1]);
+							const param = new BlitzVariable(removeType(name), uri, '(param) ' + q.trim(), lineRange, 'param', extractType(name));
 							param.type = 'parameter';
 							cFunction.locals.push(param);
 						}
@@ -382,7 +382,7 @@ function generateTokens(uri: vscode.Uri, text: string): BlitzToken[] {
 		if (cType && tline.startsWith('field')) {
 			oline.trimStart().substring(5, startOfComment(oline.trimStart())).trim().split(',').forEach(val => {
 				if (val.length > 0) {
-					const field = new BlitzVariable(removeType(val), uri, 'Field ' + val, lineRange, 'field', extractType(val)[1]);
+					const field = new BlitzVariable(removeType(val), uri, 'Field ' + val, lineRange, 'field', extractType(val));
 					field.description = oline.substring(startOfComment(oline) + 1).trim();
 					field.matchBefore = /(Field\s.*|\\)$/i;
 					field.type = 'field';
@@ -405,7 +405,7 @@ function generateTokens(uri: vscode.Uri, text: string): BlitzToken[] {
 		if (tline.startsWith('dim ')) {
 			let pline = oline.trimStart().substring(4);
 			let arrname = pline.split('(')[0];
-			const dt = extractType(arrname)[1];
+			const dt = extractType(arrname);
 			arrname = removeType(arrname);
 			const qline = pline.substring(pline.indexOf('(') + 1, pline.indexOf(')'));
 			if (pline.length > 0 && arrname.length > 0) {
@@ -768,7 +768,7 @@ function removeType(name: string): string {
 }
 
 
-function extractType(name: string) {
+function extractType(name: string): string {
 	let q = name.trim();
 	let suffix = '';
 	if (q.endsWith(']')) {
@@ -776,11 +776,10 @@ function extractType(name: string) {
 		q = q.substring(0, q.lastIndexOf('['));
 	}
 	if (q.indexOf('.') > 0) {
-		const ret = q.split('.');
-		return [ret[0], ret[1] + suffix]
+		return q.split('.')[1] + suffix
 	} else if (q.endsWith('$') || q.endsWith('#') || q.endsWith('%')) {
-		return [q.substring(0, q.length - 1).trimEnd(), q.substring(q.length - 1) + suffix];
-	} else return [q, '(%)' + suffix];
+		return q.substring(q.length - 1) + suffix;
+	} else return '(%)' + suffix;
 }
 
 class DocumentSemanticTokensProvider implements vscode.DocumentSemanticTokensProvider {

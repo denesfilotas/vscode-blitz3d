@@ -341,6 +341,10 @@ function generateTokens(uri: vscode.Uri, text: string): BlitzToken[] {
 				lineRange
 			);
 			cFunction.uri = uri;
+			if (cStub.description.length == 0 && i > 0) {
+				const prevLine = lines[i - 1];
+				if (prevLine.substring(0, startOfComment(prevLine)).trim() == '') cStub.description.push(prevLine.substring(startOfComment(prevLine) + 1).trim());
+			}
 			cFunction.stub = cStub;
 			const fType = extractType(fn)[1];
 			if (fType) cFunction.returnType = fType;

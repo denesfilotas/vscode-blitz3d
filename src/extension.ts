@@ -1091,7 +1091,7 @@ class BlitzHoverProvider implements vscode.HoverProvider {
 					});
 					if (t.uri != document.uri) dl = 'Defined in ' + t.uri.path.substring(t.uri.path.lastIndexOf('/') + 1);
 				}
-				//if (t instanceof BlitzVariable && t.description) desc.push(t.description);
+				if (t instanceof BlitzVariable && t.description) desc.appendText(t.description);
 				if (!(t instanceof BlitzVariable)) break; // Variables can be dimmed
 			}
 		}

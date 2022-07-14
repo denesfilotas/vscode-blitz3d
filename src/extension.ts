@@ -1278,7 +1278,7 @@ class CompletionItemProvider implements vscode.CompletionItemProvider {
 		}
 
         const wr = document.getWordRangeAtPosition(position);
-        const prevwr = wr ? document.getWordRangeAtPosition(wr.start.translate(0, -2)) : undefined;
+        const prevwr = wr ? document.getWordRangeAtPosition(wr.start.translate(0, -2)) : pwr;
         if (prevwr && document.getText(prevwr).match(/^(function|type|local|global|const|dim|field)$/i)) return undefined;
 
 		// general IntelliSense

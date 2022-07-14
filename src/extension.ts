@@ -839,7 +839,7 @@ class DocumentSemanticTokensProvider implements vscode.DocumentSemanticTokensPro
 							line: i,
 							startCharacter: st,
 							length: t.lcname.length,
-							tokenType: t.type,
+							tokenType: t instanceof BlitzDimmedArray ? 'variable' : t.type,
 							tokenModifiers: []
 						});
 					}

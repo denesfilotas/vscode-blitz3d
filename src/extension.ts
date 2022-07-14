@@ -1277,7 +1277,7 @@ class CompletionItemProvider implements vscode.CompletionItemProvider {
 			return new vscode.CompletionList(r);
 		}
 
-        if (pwr && document.getText(pwr).match(/^(function|type|local|global|const|dim)$/i)) return undefined;
+        if (pwr && document.getText(pwr).match(/^(function|type|local|global|const|dim|field)$/i)) return undefined;
 
 		// general IntelliSense
 		for (const t of tokens) {

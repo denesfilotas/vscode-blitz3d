@@ -174,7 +174,7 @@
                 "properties": {
                     "blitz3d.editor.UseBracketsEverywhere": {
                         "type": "boolean",
-                        "description": "Always use brackets on code completion, even after non-bracketed builtin functions and keywords.",
+                        "description": "Always use brackets on code completion, even after builtin functions where they could be omitted.",
                         "default": false
                     },
                     "blitz3d.editor.UseTodos": {

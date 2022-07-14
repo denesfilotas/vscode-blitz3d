@@ -928,6 +928,15 @@ function isBuiltinBlitzFunction(name:string) {
 }
 
 /**
+ * Check if given string is an unbracketed keyword - might be incomplete
+ * @param name the string to check
+ * @returns true if name is a keyword which shouldn't be followed by parenthesis
+ */
+function isBlitzKeyword(name: string) {
+    return ',if,then,else,elseif,endif,select,case,default,end,and,or,xor,not,repeat,until,forever,while,wend,for,to,step,next,exit,goto,gosub,return,function,const,global,local,dim,type,field,new,each,first,last,insert,delete,true,false,null,data,read,restore,include,pi,mod,shl,shr,sar,'.includes(',' + name.toLowerCase() + ',');
+}
+
+/**
  * Determines where the comment starts in a valid blitz3d line. If there is no comment, the line length is returned so that it will always be bigger than all considerable character positions.
  * @param line the line of code to be examined
  * @returns the position of the first ';' character which is not in a string, or the line length, if there are none
@@ -1327,12 +1336,13 @@ class CompletionItemProvider implements vscode.CompletionItemProvider {
 		// Builtin functions
 		const usebrackets = vscode.workspace.getConfiguration('blitz3d.editor').get<boolean>('UseBracketsEverywhere');
 		for (const stub of stubs) {
-			let ci = new vscode.CompletionItem({label: stub.name, detail: stub.declaration.substring(8).includes('(') ? '()' : ''}, vscode.CompletionItemKind.Function);
+            const isKw = isBlitzKeyword(stub.name.split(' ')[0]);
+			let ci = new vscode.CompletionItem({label: stub.name, detail: stub.declaration.substring(8).includes('(') ? '()' : ''}, isKw ? vscode.CompletionItemKind.Keyword : vscode.CompletionItemKind.Function);
 			ci.documentation = stub.description.join('  \n');
-			if (usebrackets || stub.declaration.substring(9).includes('(')) ci.insertText = new vscode.SnippetString(stub.name + '($0)');
+			if ((usebrackets && !isKw) || stub.declaration.substring(9).includes('(')) ci.insertText = new vscode.SnippetString(stub.name + '($0)');
 			else ci.insertText = stub.name + ' ';
 			if (stub.name == 'Dim') ci.insertText = new vscode.SnippetString('Dim ${1:array_name}(${0:maxindex0...})');
-			ci.command = {
+			if (!isKw) ci.command = {
 				title: 'Trigger Parameter Hints',
 				command: 'editor.action.triggerParameterHints'
 			}

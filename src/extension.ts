@@ -354,7 +354,7 @@ function generateTokens(uri: vscode.Uri, text: string): BlitzToken[] {
 			if (op < startOfComment(tline)) { // don't parse parameters from comments
 				const cp = tline.indexOf(')');
 				if (cp >= 0) {
-					const pars = tline.substring(op + 1, cp).split(',');
+					const pars = oline.trim().substring(op + 1, cp).split(',');
 					for (const q of pars) {
 						const name = q.split('=')[0].trim();
 						if (q.trim().length > 0) {

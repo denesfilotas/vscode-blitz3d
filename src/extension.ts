@@ -1040,12 +1040,15 @@ class BlitzHoverProvider implements vscode.HoverProvider {
 		if (wr.start.character > 1) {
 			const x = document.getText(new vscode.Range(wr.start.translate(0, -1), wr.start));
 			if (x == '\\') {
+                //TODO fix arrays and returned values not getting detected
 				const pwr = document.getWordRangeAtPosition(wr.start.translate(0, -2));
 				if (pwr) {
 					const par = document.getText(pwr);
 					// look up type of parent
 					for (const t of tokens) {
+                        if (t.uri != document.uri) continue;
 						if (t instanceof BlitzVariable && t.lcname == par) {
+                            if (t instanceof BlitzIterator && (position.isBefore(t.declarationRange.start) || position.isAfter(t.range.end))) continue;
 							typename = t.dataType;
 							break;
 						} else if (t instanceof BlitzFunction && position.isAfter(t.declarationRange.start) && position.isBefore(t.endPosition)) {
@@ -1055,6 +1058,7 @@ class BlitzHoverProvider implements vscode.HoverProvider {
 								}
 							});
 						} else if (t instanceof BlitzType /*&& document.getText(new vscode.Range(pwr?.start.translate(0, -1), pwr?.start))*/) {
+                            //TODO implement stack of fields to check parent correctly
 							for (const f of t.fields) {
 								if (f.lcname == par) {
 									typename = f.dataType;
@@ -1069,22 +1073,23 @@ class BlitzHoverProvider implements vscode.HoverProvider {
 		let newdef = '', priornewdef = '';
 		for (const t of tokens) {
 			if (t instanceof BlitzFunction && t.uri == document.uri && position.isAfter(t.declarationRange.start) && position.isBefore(t.endPosition)) {
-				t.locals.forEach((loc) => {
+				for (const loc of t.locals) {
 					if (def == loc.lcname && !((loc.matchBefore && !line.substring(0, wr.start.character).match(loc.matchBefore)) || (loc.matchAfter && !line.substring(wr.end.character).match(loc.matchAfter)))) {
 						priornewdef = '```\n' + loc.declaration + '\n```';
 						if (loc.description) desc.appendMarkdown(loc.description);
 						dl = 'Defined in Function ' + t.oname;
 					}
-				});
+				};
 			}
 			if (typename && t instanceof BlitzType && t.lcname == typename) {
-				t.fields.forEach((f) => {
+                dl = 'Unknown field';
+				for (const f of t.fields) {
 					if (def == f.lcname && !((f.matchBefore && !line.substring(0, wr.start.character).match(f.matchBefore)) || (f.matchAfter && !line.substring(wr.end.character).match(f.matchAfter)))) {
 						priornewdef = '```\n' + f.declaration + '\n```';
 						if (f.description) desc.appendMarkdown(f.description);
 						dl = 'Defined in Type ' + t.oname;
 					}
-				});
+				};
 			}
 			if (def == t.lcname) {
 				if (t.matchBefore && !line.substring(0, wr.start.character).match(t.matchBefore)) continue;
@@ -1250,11 +1255,11 @@ class CompletionItemProvider implements vscode.CompletionItemProvider {
 						typename = t.dataType;
 						break;
 					} else if (t instanceof BlitzFunction && position.isAfter(t.declarationRange.start) && position.isBefore(t.endPosition)) {
-						t.locals.forEach(loc => {
+						for (const loc of t.locals) {
 							if (loc.lcname == par) {
 								typename = loc.dataType;
 							}
-						});
+						};
 					} else if (t instanceof BlitzType /*&& document.getText(new vscode.Range(pwr?.start.translate(0, -1), pwr?.start))*/) {
 						for (const f of t.fields) {
 							if (f.lcname == par) {

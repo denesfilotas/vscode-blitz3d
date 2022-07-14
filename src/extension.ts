@@ -1440,7 +1440,7 @@ class SignatureHelpProvider implements vscode.SignatureHelpProvider {
 					const arrname = nameEnd == -1 ? 'array_name' : line.substring(nameStart, nameEnd).trim();
 					let sigInf = new vscode.SignatureInformation('(builtin) Dim ' + arrname + '(');
 					if (nameEnd == -1) sigInf.parameters.push(new vscode.ParameterInformation(arrname));
-					for (let i = 0; i < ret.activeParameter + 1; i++) {
+					for (let i = 0; i < ps[0] + 1; i++) {
 						sigInf.label += 'index' + i + ', ';
 						sigInf.parameters.push(new vscode.ParameterInformation('index' + i));					
 					}
@@ -1457,6 +1457,7 @@ class SignatureHelpProvider implements vscode.SignatureHelpProvider {
 							for (const param of stub.parameters) {
 								sigInf.parameters.push(new vscode.ParameterInformation(param.trim().substring(0, param.trim().indexOf(' '))));
 							}
+                            sigInf.documentation = stub.parameters.join('  \n');
 							ret.signatures.push(sigInf);
 							ret.activeParameter = ps[0];
 							break chars;

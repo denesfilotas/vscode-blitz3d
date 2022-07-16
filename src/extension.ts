@@ -1380,8 +1380,29 @@ class CompletionItemProvider implements vscode.CompletionItemProvider {
             const isKw = isBlitzKeyword(stub.name.split(' ')[0]);
             let ci = new vscode.CompletionItem({ label: stub.name, detail: stub.declaration.substring(8).includes('(') ? '()' : '' }, isKw ? vscode.CompletionItemKind.Keyword : vscode.CompletionItemKind.Function);
             ci.documentation = stub.description.join('  \n');
-            if ((usebrackets && !isKw) || stub.declaration.substring(9).includes('(')) ci.insertText = new vscode.SnippetString(stub.name + '($0)');
-            else ci.insertText = stub.name + ' ';
+            if (useSnippets) {
+                const snip = new vscode.SnippetString(stub.name);
+                if ((usebrackets && !isKw) || stub.declaration.substring(9).includes('(')) snip.appendText('(');
+                const params: string[] = [];
+                const dec = stub.declaration.substring(10).replace(/,?\[/, '').replace(']', '');
+                const op = dec.indexOf('(') == -1 ? dec.indexOf(' ') : dec.indexOf('(');
+                if (op > -1) {
+                    const cp = dec.indexOf(')') == -1 ? dec.length : dec.indexOf(')');
+                    const pars = dec.substring(op + 1, cp).split(',');
+                    for (const p of pars) params.push(p.split('=')[0].trim());
+                    let fst = true;
+                    for (const param of params) {
+                        if (!fst) snip.appendText(', ');
+                        snip.appendPlaceholder(param);
+                        fst = false;
+                    }
+                }
+                if ((usebrackets && !isKw) || stub.declaration.substring(9).includes('(')) snip.appendText(')');
+                ci.insertText = snip;
+            } else {
+                if ((usebrackets && !isKw) || stub.declaration.substring(9).includes('(')) ci.insertText = new vscode.SnippetString(stub.name + '($0)');
+                else ci.insertText = stub.name + ' ';
+            }
             if (stub.name == 'Dim') ci.insertText = new vscode.SnippetString('Dim ${1:array_name}(${0:maxindex0...})');
             if (!isKw) ci.command = {
                 title: 'Trigger Parameter Hints',

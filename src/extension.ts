@@ -1319,6 +1319,7 @@ class CompletionItemProvider implements vscode.CompletionItemProvider {
         if (prevwr && document.getText(prevwr).match(/^(function|type|local|global|const|dim|field)$/i)) return undefined;
 
         // general IntelliSense
+        const useSnippets = vscode.workspace.getConfiguration('blitz3d.editor').get<boolean>('InsertParameterSnippets');
         for (const t of tokens) {
             if (t instanceof BlitzType) continue;
             let ci = new vscode.CompletionItem({ label: t.oname }, this._typeToKind(t.type));
@@ -1328,7 +1329,19 @@ class CompletionItemProvider implements vscode.CompletionItemProvider {
                     detail: (t.returnType.charAt(0).match(/\w/) ? '.' : '') + t.returnType + '()',
                     description: t.stub?.description.join(' ')
                 };
-                ci.insertText = new vscode.SnippetString(t.oname + '($0)');
+                const snip = new vscode.SnippetString(t.oname + '(');
+                if (useSnippets) {
+                    let fst = true;
+                    for (const param of t.locals.filter(f => f.storageType == 'param')) {
+                        if (!fst) snip.appendText(', ');
+                        snip.appendPlaceholder(param.oname);
+                        fst = false;
+                    }
+                } else {
+                    snip.appendTabstop(0);
+                }
+                snip.appendText(')');
+                ci.insertText = snip;
                 ci.command = {
                     title: 'Trigger Parameter Hints',
                     command: 'editor.action.triggerParameterHints'

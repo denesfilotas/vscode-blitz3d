@@ -1445,6 +1445,7 @@ class SignatureHelpProvider implements vscode.SignatureHelpProvider {
         let wend = line.length;
         let pc = 0;
         let ps = [0];
+        const usebrackets = vscode.workspace.getConfiguration('blitz3d.editor').get<boolean>('UseBracketsEverywhere');
         chars: for (let i = line.length - 1; i >= 0; i--) {
             const c = line.charAt(i);
             if (c == '"' || isInString(line, i)) continue;
@@ -1494,7 +1495,7 @@ class SignatureHelpProvider implements vscode.SignatureHelpProvider {
                 for (const stub of stubs) {
                     if (stub.name.toLowerCase() == word) {
                         const argCount = stub.parameters[0].match(/none/i) ? 0 : stub.declaration.replace(',[,', '[,').split(',').length;
-                        if ((stub.declaration.indexOf('(', 2) == -1 && ret.activeParameter < argCount) || pc < 0) {
+                        if ((!usebrackets && stub.declaration.indexOf('(', 2) == -1 && ret.activeParameter < argCount) || pc < 0) {
                             let sigInf = new vscode.SignatureInformation(stub.declaration);
                             for (const param of stub.parameters) {
                                 sigInf.parameters.push(new vscode.ParameterInformation(param.trim().substring(0, param.trim().indexOf(' '))));

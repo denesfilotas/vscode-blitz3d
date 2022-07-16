@@ -175,7 +175,12 @@
                     "blitz3d.editor.UseBracketsEverywhere": {
                         "type": "boolean",
                         "description": "Always use brackets on code completion, even after builtin functions where they could be omitted.",
-                        "default": false
+                        "default": true
+                    },
+                    "blitz3d.editor.InsertParameterSnippets": {
+                        "type": "boolean",
+                        "description": "Insert a snippet with all parameters on code completion",
+                        "default": true
                     },
                     "blitz3d.editor.UseTodos": {
                         "type": "string",

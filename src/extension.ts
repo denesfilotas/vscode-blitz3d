@@ -1346,7 +1346,7 @@ class CompletionItemProvider implements vscode.CompletionItemProvider {
                     title: 'Trigger Parameter Hints',
                     command: 'editor.action.triggerParameterHints'
                 };
-                ci.documentation = t.stub?.description.join('\n');
+                ci.documentation = new vscode.MarkdownString(t.stub?.description.join('  \n'));
                 if (position.isAfter(t.declarationRange.start) && position.isBefore(t.endPosition) && document.uri == t.uri) {
                     t.locals.forEach(loc => {
                         r.push(new vscode.CompletionItem({ label: loc.oname, detail: (loc.dataType.charAt(0).match(/\w/) ? '.' : '') + loc.dataType, description: '(local) ' + (loc.description ? loc.description : '') }, vscode.CompletionItemKind.Variable));
@@ -1379,7 +1379,7 @@ class CompletionItemProvider implements vscode.CompletionItemProvider {
         for (const stub of stubs) {
             const isKw = isBlitzKeyword(stub.name.split(' ')[0]);
             let ci = new vscode.CompletionItem({ label: stub.name, detail: stub.declaration.substring(8).includes('(') ? '()' : '' }, isKw ? vscode.CompletionItemKind.Keyword : vscode.CompletionItemKind.Function);
-            ci.documentation = stub.description.join('  \n');
+            ci.documentation = new vscode.MarkdownString(stub.description.join('  \n'));
             if (useSnippets) {
                 const snip = new vscode.SnippetString(stub.name);
                 if ((usebrackets && !isKw) || stub.declaration.substring(9).includes('(')) snip.appendText('(');
@@ -1537,7 +1537,7 @@ class SignatureHelpProvider implements vscode.SignatureHelpProvider {
                         if ((!usebrackets && stub.declaration.indexOf('(', 2) == -1 && ret.activeParameter < params.length) || pc < 0) {
                             let sigInf = new vscode.SignatureInformation(stub.declaration);
                             for (let i = 0; i < params.length; i++) sigInf.parameters.push(new vscode.ParameterInformation(removeType(params[i]), stub.parameters[i]));
-                            sigInf.documentation = stub.parameters.join('  \n');
+                            sigInf.documentation = new vscode.MarkdownString('#### Function description  \n' + stub.description.join('  \n'));
                             ret.signatures.push(sigInf);
                             ret.activeParameter = ps[0];
                             break chars;

@@ -45,6 +45,7 @@ The following keywords can be used in lines preceding function declarations:
 - `;;param ` followed by the name of a parameter and its description
 
 These keywords are interpreted as comments in standard blitz3d, but within vscode they are used to provide information on mouse hover or code completion.
+If there is no bbdoc for a function and the preceding line contains just a comment, that is parsed as description.
 
 ### Manage tasks with TODOS
 
@@ -60,5 +61,7 @@ See contributed settings in the `Feature Contributions` tab.
 
 ## Known Issues
 
- * Colons are not supported. Using a colon can cause unexpected behaviour.
+ * Variables might not be recognized when no explicit declaration is present
+ * Changedir command prevents the extension from importing files correctly
+ * Custom commands and DLLs are not supported
  * Hangs and unexpected behaviour (without code loss) can be experienced rarely

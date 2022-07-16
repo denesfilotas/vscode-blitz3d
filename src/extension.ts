@@ -1507,12 +1507,15 @@ class SignatureHelpProvider implements vscode.SignatureHelpProvider {
                 }
                 for (const stub of stubs) {
                     if (stub.name.toLowerCase() == word) {
-                        const argCount = stub.parameters[0].match(/none/i) ? 0 : stub.declaration.replace(',[,', '[,').split(',').length;
-                        if ((!usebrackets && stub.declaration.indexOf('(', 2) == -1 && ret.activeParameter < argCount) || pc < 0) {
+                        const params: string[] = [];
+                        const dec = stub.declaration.substring(10).replace(/,?\[/, '').replace(']', '');
+                        const op = dec.indexOf('(') == -1 ? dec.indexOf(' ') : dec.indexOf('(');
+                        const cp = dec.indexOf(')') == -1 ? dec.length : dec.indexOf(')');
+                        const pars = dec.substring(op + 1, cp).split(',');
+                        for (const p of pars) params.push(p.split('=')[0].trim());
+                        if ((!usebrackets && stub.declaration.indexOf('(', 2) == -1 && ret.activeParameter < params.length) || pc < 0) {
                             let sigInf = new vscode.SignatureInformation(stub.declaration);
-                            for (const param of stub.parameters) {
-                                sigInf.parameters.push(new vscode.ParameterInformation(param.trim().substring(0, param.trim().indexOf(' '))));
-                            }
+                            for (let i = 0; i < params.length; i++) sigInf.parameters.push(new vscode.ParameterInformation(removeType(params[i]), stub.parameters[i]));
                             sigInf.documentation = stub.parameters.join('  \n');
                             ret.signatures.push(sigInf);
                             ret.activeParameter = ps[0];

@@ -1445,6 +1445,7 @@ class CompletionItemProvider implements vscode.CompletionItemProvider {
             if (useSnippets) {
                 const snip = new vscode.SnippetString(stub.name);
                 if ((usebrackets && !isKw) || stub.declaration.substring(9).includes('(')) snip.appendText('(');
+                else snip.appendText(' ');
                 const params: string[] = [];
                 const dec = stub.declaration.substring(10).replace(/,?\[/, '').replace(']', '');
                 const op = dec.indexOf('(') == -1 ? dec.indexOf(' ') : dec.indexOf('(');

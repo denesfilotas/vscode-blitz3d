@@ -1071,38 +1071,91 @@ class BlitzHoverProvider implements vscode.HoverProvider {
         const tokens = generateTokens(document.uri, document.getText());
 
         // check if hovered over a field
-        let typename: string | undefined;
-        if (wr.start.character > 1) {
-            const x = document.getText(new vscode.Range(wr.start.translate(0, -1), wr.start));
-            if (x == '\\') {
-                //TODO fix arrays and returned values not getting detected
-                const pwr = document.getWordRangeAtPosition(wr.start.translate(0, -2));
-                if (pwr) {
-                    const par = document.getText(pwr);
-                    // look up type of parent
-                    for (const t of tokens) {
-                        if (t.uri != document.uri) continue;
-                        if (t instanceof BlitzVariable && t.lcname == par) {
-                            if (t instanceof BlitzIterator && (position.isBefore(t.declarationRange.start) || position.isAfter(t.range.end))) continue;
-                            typename = t.dataType;
-                            break;
-                        } else if (t instanceof BlitzFunction && position.isAfter(t.declarationRange.start) && position.isBefore(t.endPosition)) {
-                            t.locals.forEach(loc => {
-                                if (loc.lcname == par) {
-                                    typename = loc.dataType;
-                                }
-                            });
-                        } else if (t instanceof BlitzType /*&& document.getText(new vscode.Range(pwr?.start.translate(0, -1), pwr?.start))*/) {
-                            //TODO implement stack of fields to check parent correctly
-                            for (const f of t.fields) {
-                                if (f.lcname == par) {
-                                    typename = f.dataType;
-                                }
+        const parents: string[] = [];
+        const tline = line.substring(0, wr.start.character).trim().replace(/\s*\\\s*/g, '\\');
+        if (tline.length > 1) {
+            const x = tline.length - 1;
+            let fend = x;
+            if (tline[x] == '\\') {
+                for (let i = x - 1; i >= 0; i--) {
+                    if (tline[i] == ']') {
+                        i = tline.substring(0, i).lastIndexOf('[');
+                        fend = i;
+                        continue;
+                    }
+                    if (line[i] == ')') {
+                        i = tline.substring(0, i).lastIndexOf('(');
+                        fend = i;
+                        continue;
+                    }
+                    if (tline[i] == '\\') {
+                        parents.unshift(removeType(tline.substring(i + 1, fend)));
+                        fend = i;
+                        continue;
+                    }
+                    if (!tline[i].match(/\w/)) {
+                        parents.unshift(removeType(tline.substring(i + 1, fend)));
+                        break;
+                    }
+                    if (i == 0) {
+                        parents.unshift(removeType(tline.substring(0, fend)));
+                    }
+                }
+            }
+        }
+        if (parents.length > 0) {
+            dl = 'Unknown field';
+            let curr: BlitzType | undefined;
+            tlu: for (const t of tokens
+                .concat((<Array<BlitzFunction>>tokens.filter(
+                    t => t instanceof BlitzFunction
+                        && position.isAfter(t.declarationRange.start)
+                        && position.isBefore(t.range.end)))
+                    .flatMap(t => t.locals))) {
+                if (t.lcname == parents[0].toLowerCase()) {
+                    let type = '';
+                    if (t instanceof BlitzFunction) type = t.returnType.split('[')[0].split('(')[0];
+                    else if (t instanceof BlitzVariable) type = t.dataType.split('[')[0].split('(')[0];
+                    for (const t of tokens.filter(t => t instanceof BlitzType)) {
+                        if (t.lcname == type.toLowerCase()) {
+                            curr = <BlitzType>t;
+                            break tlu;
+                        }
+                    }
+                }
+            }
+            ps: for (let i = 1; curr && i < parents.length; i++) {
+                const parent = parents[i].toLowerCase();
+                for (const f of curr.fields) {
+                    if (f.lcname == parent) {
+                        const type = f.dataType.split('[')[0].split('(')[0];
+                        for (const t of tokens.filter(t => t instanceof BlitzType)) {
+                            if (t.lcname == type.toLowerCase()) {
+                                curr = <BlitzType>t;
+                                continue ps;
                             }
                         }
                     }
                 }
             }
+            if (curr) {
+                for (const f of curr.fields) {
+                    if (f.lcname == def) {
+                        if (f.description) desc.appendMarkdown(f.description);
+                        def = '```\n' + f.declaration + '\n```';
+                        dl = 'Defined in Type ' + curr.oname;
+                        break;
+                    }
+                }
+            }
+            return {
+                contents: [
+                    def,
+                    desc,
+                    dl
+                ],
+                range: wr
+            };
         }
 
         let newdef = '', priornewdef = '';
@@ -1113,16 +1166,6 @@ class BlitzHoverProvider implements vscode.HoverProvider {
                         priornewdef = '```\n' + loc.declaration + '\n```';
                         if (loc.description) desc.appendMarkdown(loc.description);
                         dl = 'Defined in Function ' + t.oname;
-                    }
-                };
-            }
-            if (typename && t instanceof BlitzType && t.lcname == typename) {
-                dl = 'Unknown field';
-                for (const f of t.fields) {
-                    if (def == f.lcname && !((f.matchBefore && !line.substring(0, wr.start.character).match(f.matchBefore)) || (f.matchAfter && !line.substring(wr.end.character).match(f.matchAfter)))) {
-                        priornewdef = '```\n' + f.declaration + '\n```';
-                        if (f.description) desc.appendMarkdown(f.description);
-                        dl = 'Defined in Type ' + t.oname;
                     }
                 };
             }

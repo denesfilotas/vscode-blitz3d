@@ -675,29 +675,29 @@ function isInString(line: string, position: number): boolean {
 
 export function activate(context: vscode.ExtensionContext) {
 
+    // Diagnostics
     diagnosticCollection = vscode.languages.createDiagnosticCollection('blitz3d');
     context.subscriptions.push(diagnosticCollection);
     if (vscode.window.activeTextEditor) {
-        if (vscode.window.activeTextEditor.document.languageId == 'blitz3d') updateDiagnostics(vscode.window.activeTextEditor.document);
+        updateDiagnostics(vscode.window.activeTextEditor.document);
+        compile(vscode.window.activeTextEditor.document);
     }
-    context.subscriptions.push(vscode.workspace.onDidSaveTextDocument(document => {
-        if (vscode.window.activeTextEditor && vscode.window.activeTextEditor.document.languageId == 'blitz3d') updateDiagnostics(document);
-    }));
+    context.subscriptions.push(vscode.workspace.onDidSaveTextDocument(compile));
+    context.subscriptions.push(vscode.workspace.onDidChangeTextDocument(e => updateDiagnostics(e.document)));
 
+    //Commands
     context.subscriptions.push(
         vscode.commands.registerCommand('extension.blitz3d.debug', () => {
             let term = vscode.window.createTerminal("blitzcc");
             term.sendText('blitzcc -d "' + vscode.window.activeTextEditor?.document.fileName + '"');
         })
     );
-
     context.subscriptions.push(
         vscode.commands.registerCommand('extension.blitz3d.run', () => {
             let term = vscode.window.createTerminal('blitzcc');
             term.sendText('blitzcc "' + vscode.window.activeTextEditor?.document.fileName + '"');
         })
     );
-
     context.subscriptions.push(
         vscode.commands.registerCommand('extension.blitz3d.openExample', (command?: string) => {
             const cpath = path.join(blitzpath, 'help', 'commands') + path.sep;
@@ -732,31 +732,24 @@ export function activate(context: vscode.ExtensionContext) {
             });
         })
     );
-
-    context.subscriptions.push(vscode.workspace.onDidChangeConfiguration(event => updateBlitzPath()));
-
-    context.subscriptions.push(vscode.debug.registerDebugConfigurationProvider('blitz3d', new Blitz3DConfigurationProvider()));
-
-    context.subscriptions.push(vscode.languages.registerDocumentSemanticTokensProvider('blitz3d', new DocumentSemanticTokensProvider(), legend));
-
-    context.subscriptions.push(vscode.languages.registerHoverProvider('blitz3d', new BlitzHoverProvider()));
-
-    context.subscriptions.push(vscode.languages.registerDocumentSymbolProvider('blitz3d', new DocumentSymbolProvider()));
-
-    context.subscriptions.push(vscode.languages.registerCompletionItemProvider('blitz3d', new CompletionItemProvider(), '.', '\\'));
-
-    context.subscriptions.push(vscode.languages.registerDefinitionProvider('blitz3d', new DefinitionProvider()));
-
-    context.subscriptions.push(vscode.languages.registerSignatureHelpProvider('blitz3d', new SignatureHelpProvider(), '(', ' '));
-
     context.subscriptions.push(vscode.commands.registerCommand('extension.blitz3d.generatestubs', generateStubs));
 
+    // Providers
+    context.subscriptions.push(vscode.debug.registerDebugConfigurationProvider('blitz3d', new Blitz3DConfigurationProvider()));
+    context.subscriptions.push(vscode.languages.registerDocumentSemanticTokensProvider('blitz3d', new DocumentSemanticTokensProvider(), legend));
+    context.subscriptions.push(vscode.languages.registerHoverProvider('blitz3d', new BlitzHoverProvider()));
+    context.subscriptions.push(vscode.languages.registerDocumentSymbolProvider('blitz3d', new DocumentSymbolProvider()));
+    context.subscriptions.push(vscode.languages.registerCompletionItemProvider('blitz3d', new CompletionItemProvider(), '.', '\\'));
+    context.subscriptions.push(vscode.languages.registerDefinitionProvider('blitz3d', new DefinitionProvider()));
+    context.subscriptions.push(vscode.languages.registerSignatureHelpProvider('blitz3d', new SignatureHelpProvider(), '(', ' '));
     context.subscriptions.push(vscode.workspace.registerTextDocumentContentProvider('bbdoc', new TextDocumentContentProvider()));
-
     context.subscriptions.push(vscode.languages.registerDocumentFormattingEditProvider('blitz3d', new DocumentFormattingEditProvider()));
 
+    // Configurations
+    context.subscriptions.push(vscode.workspace.onDidChangeConfiguration(event => updateBlitzPath()));
     vscode.workspace.getConfiguration('files.encoding', { languageId: 'blitz3d' }).update('files.encoding', 'windows1250', vscode.ConfigurationTarget.Global, true);
 
+    // Load stubs to use immediately
     updateBlitzPath();
     stubpath = context.asAbsolutePath('stubs.bb');
     let stubdoc = readFileSync(stubpath);
@@ -769,6 +762,11 @@ export function deactivate(context: vscode.ExtensionContext) {
 }
 
 function updateDiagnostics(document: vscode.TextDocument) {
+
+    if (document.languageId != 'blitz3d') {
+        diagnosticCollection.delete(document.uri);
+        return;
+    }
 
     let diagnostics: vscode.Diagnostic[] = [];
 
@@ -803,6 +801,16 @@ function updateDiagnostics(document: vscode.TextDocument) {
     }
 
     // TODO check for errors by ourselves
+}
+
+function compile(document: vscode.TextDocument) {
+
+    if (document.languageId != 'blitz3d') {
+        diagnosticCollection.delete(document.uri);
+        return;
+    }
+
+    let diagnostics: vscode.Diagnostic[] = [];
 
     // run compiler with env got from config
     const env = process.env;

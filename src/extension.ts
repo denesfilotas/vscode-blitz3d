@@ -1389,12 +1389,11 @@ class CompletionItemProvider implements vscode.CompletionItemProvider {
                 if (op > -1) {
                     const cp = dec.indexOf(')') == -1 ? dec.length : dec.indexOf(')');
                     const pars = dec.substring(op + 1, cp).split(',');
-                    for (const p of pars) params.push(p.split('=')[0].trim());
-                    let fst = true;
-                    for (const param of params) {
-                        if (!fst) snip.appendText(', ');
-                        snip.appendPlaceholder(param);
-                        fst = false;
+                    for (const p of pars) params.push(removeType(p));
+                    for (let i = 0; i < params.length; i++) {
+                        if (i < stub.parameters.length && stub.parameters[i].includes('(optional)')) continue;
+                        if (i != 0) snip.appendText(', ');
+                        snip.appendPlaceholder(params[i]);
                     }
                 }
                 if ((usebrackets && !isKw) || stub.declaration.substring(9).includes('(')) snip.appendText(')');

@@ -1489,6 +1489,16 @@ class DefinitionProvider implements vscode.DefinitionProvider {
 
         let def = document.getText(wr).toLowerCase();
         const tokens = generateTokens(document.uri, document.getText());
+
+        // Check for field declaration
+        const field = getFieldFromNestedExpression(line.substring(0, wr.start.character), def, tokens, new vscode.Location(document.uri, position));
+        if (field) {
+            return {
+                range: field.field.declarationRange,
+                uri: field.field.uri
+            }
+        }
+
         let pos: vscode.Position | undefined = undefined;
         let uri: vscode.Uri | undefined = undefined;
         for (const t of tokens) {
@@ -1505,15 +1515,6 @@ class DefinitionProvider implements vscode.DefinitionProvider {
                         def = '```\n' + loc.declaration + '\n```';
                         pos = loc.declarationRange.start;
                         uri = loc.uri;
-                    }
-                });
-            }
-            if (t instanceof BlitzType) {
-                t.fields.forEach((f) => {
-                    if (def == f.lcname && !((f.matchBefore && !line.substring(0, wr.start.character).match(f.matchBefore)) || (f.matchAfter && !line.substring(wr.end.character).match(f.matchAfter)))) {
-                        def = '```\n' + f.declaration + '\n```';
-                        pos = f.declarationRange.start;
-                        uri = f.uri;
                     }
                 });
             }

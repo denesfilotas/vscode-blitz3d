@@ -710,6 +710,87 @@ function isInString(line: string, position: number): boolean {
     return false;
 }
 
+function getFieldFromNestedExpression(exp: string, name: string, tokens: BlitzToken[], location: vscode.Location): {field: BlitzVariable, parent: BlitzType} | undefined {
+    const parents: string[] = [];
+    const tline = exp.trim().replace(/\s*\\\s*/g, '\\');
+    if (tline.length > 1) {
+        const x = tline.length - 1;
+        let fend = x;
+        if (tline[x] == '\\') {
+            for (let i = x - 1; i >= 0; i--) {
+                if (tline[i] == ']') {
+                    i = tline.substring(0, i).lastIndexOf('[');
+                    fend = i;
+                    continue;
+                }
+                if (tline[i] == ')') {
+                    i = tline.substring(0, i).lastIndexOf('(');
+                    fend = i;
+                    continue;
+                }
+                if (tline[i] == '\\') {
+                    parents.unshift(removeType(tline.substring(i + 1, fend)));
+                    fend = i;
+                    continue;
+                }
+                if (!tline[i].match(/\w/)) {
+                    parents.unshift(removeType(tline.substring(i + 1, fend)));
+                    break;
+                }
+                if (i == 0) {
+                    parents.unshift(removeType(tline.substring(0, fend)));
+                }
+            }
+        }
+    }
+    if (parents.length > 0) {
+        let curr: BlitzType | undefined;
+        tlu: for (const t of tokens
+            .concat((<Array<BlitzFunction>>tokens.filter(
+                t => t instanceof BlitzFunction
+                    && location.uri == t.uri
+                    && location.range.start.isAfter(t.declarationRange.start)
+                    && location.range.end.isBefore(t.range.end)))
+                .flatMap(t => t.locals))) {
+            if (t.lcname == parents[0].toLowerCase()) {
+                let type = '';
+                if (t instanceof BlitzFunction) type = t.returnType.split('[')[0].split('(')[0];
+                else if (t instanceof BlitzVariable) type = t.dataType.split('[')[0].split('(')[0];
+                for (const t of tokens.filter(t => t instanceof BlitzType)) {
+                    if (t.lcname == type.toLowerCase()) {
+                        curr = <BlitzType>t;
+                        break tlu;
+                    }
+                }
+            }
+        }
+        ps: for (let i = 1; curr && i < parents.length; i++) {
+            const parent = parents[i].toLowerCase();
+            for (const f of curr.fields) {
+                if (f.lcname == parent) {
+                    const type = f.dataType.split('[')[0].split('(')[0];
+                    for (const t of tokens.filter(t => t instanceof BlitzType)) {
+                        if (t.lcname == type.toLowerCase()) {
+                            curr = <BlitzType>t;
+                            continue ps;
+                        }
+                    }
+                }
+            }
+        }
+        if (curr) {
+            for (const f of curr.fields) {
+                if (f.lcname == name) {
+                    return {
+                        field: f,
+                        parent: curr
+                    };
+                }
+            }
+        }
+    }
+}
+
 export function activate(context: vscode.ExtensionContext) {
 
     // Diagnostics
@@ -1072,87 +1153,13 @@ class BlitzHoverProvider implements vscode.HoverProvider {
 
         // check if hovered over a field
         const parents: string[] = [];
-        const tline = line.substring(0, wr.start.character).trim().replace(/\s*\\\s*/g, '\\');
-        if (tline.length > 1) {
-            const x = tline.length - 1;
-            let fend = x;
-            if (tline[x] == '\\') {
-                for (let i = x - 1; i >= 0; i--) {
-                    if (tline[i] == ']') {
-                        i = tline.substring(0, i).lastIndexOf('[');
-                        fend = i;
-                        continue;
-                    }
-                    if (line[i] == ')') {
-                        i = tline.substring(0, i).lastIndexOf('(');
-                        fend = i;
-                        continue;
-                    }
-                    if (tline[i] == '\\') {
-                        parents.unshift(removeType(tline.substring(i + 1, fend)));
-                        fend = i;
-                        continue;
-                    }
-                    if (!tline[i].match(/\w/)) {
-                        parents.unshift(removeType(tline.substring(i + 1, fend)));
-                        break;
-                    }
-                    if (i == 0) {
-                        parents.unshift(removeType(tline.substring(0, fend)));
-                    }
-                }
-            }
-        }
-        if (parents.length > 0) {
-            dl = 'Unknown field';
-            let curr: BlitzType | undefined;
-            tlu: for (const t of tokens
-                .concat((<Array<BlitzFunction>>tokens.filter(
-                    t => t instanceof BlitzFunction
-                        && position.isAfter(t.declarationRange.start)
-                        && position.isBefore(t.range.end)))
-                    .flatMap(t => t.locals))) {
-                if (t.lcname == parents[0].toLowerCase()) {
-                    let type = '';
-                    if (t instanceof BlitzFunction) type = t.returnType.split('[')[0].split('(')[0];
-                    else if (t instanceof BlitzVariable) type = t.dataType.split('[')[0].split('(')[0];
-                    for (const t of tokens.filter(t => t instanceof BlitzType)) {
-                        if (t.lcname == type.toLowerCase()) {
-                            curr = <BlitzType>t;
-                            break tlu;
-                        }
-                    }
-                }
-            }
-            ps: for (let i = 1; curr && i < parents.length; i++) {
-                const parent = parents[i].toLowerCase();
-                for (const f of curr.fields) {
-                    if (f.lcname == parent) {
-                        const type = f.dataType.split('[')[0].split('(')[0];
-                        for (const t of tokens.filter(t => t instanceof BlitzType)) {
-                            if (t.lcname == type.toLowerCase()) {
-                                curr = <BlitzType>t;
-                                continue ps;
-                            }
-                        }
-                    }
-                }
-            }
-            if (curr) {
-                for (const f of curr.fields) {
-                    if (f.lcname == def) {
-                        if (f.description) desc.appendMarkdown(f.description);
-                        def = '```\n' + f.declaration + '\n```';
-                        dl = 'Defined in Type ' + curr.oname;
-                        break;
-                    }
-                }
-            }
+        const field = getFieldFromNestedExpression(line.substring(0, wr.start.character), def, tokens, new vscode.Location(document.uri, position));
+        if (field) {
             return {
                 contents: [
-                    def,
-                    desc,
-                    dl
+                    '```\n' + field.field.declaration + '\n```',
+                    new vscode.MarkdownString(field.field.description),
+                    'Defined in Type ' + field.parent.oname
                 ],
                 range: wr
             };

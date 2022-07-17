@@ -381,8 +381,8 @@ function generateTokens(uri: vscode.Uri, text: string): BlitzToken[] {
         }
         if (cType && tline.startsWith('field')) {
             oline.trimStart().substring(5, startOfComment(oline.trimStart())).trim().split(',').forEach(val => {
-                if (val.length > 0) {
-                    const field = new BlitzVariable(removeType(val), uri, 'Field ' + val, lineRange, 'field', extractType(val));
+                if (val.trim().length > 0) {
+                    const field = new BlitzVariable(removeType(val), uri, 'Field ' + val.trim(), lineRange, 'field', extractType(val));
                     field.description = oline.substring(startOfComment(oline) + 1).trim();
                     field.matchBefore = /(Field\s.*|\\)$/i;
                     field.type = 'field';

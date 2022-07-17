@@ -710,7 +710,7 @@ function isInString(line: string, position: number): boolean {
     return false;
 }
 
-function getFieldFromNestedExpression(exp: string, name: string, tokens: BlitzToken[], location: vscode.Location): {field: BlitzVariable, parent: BlitzType} | undefined {
+function getFieldFromNestedExpression(exp: string, name: string, tokens: BlitzToken[], location: vscode.Location): { field: BlitzVariable, parent: BlitzType; } | undefined {
     const parents: string[] = [];
     const tline = exp.trim().replace(/\s*\\\s*/g, '\\');
     if (tline.length > 1) {
@@ -1496,16 +1496,17 @@ class DefinitionProvider implements vscode.DefinitionProvider {
             return {
                 range: field.field.declarationRange,
                 uri: field.field.uri
-            }
+            };
         }
 
-        let pos: vscode.Position | undefined = undefined;
+        let range: vscode.Range | undefined = undefined;
         let uri: vscode.Uri | undefined = undefined;
         for (const t of tokens) {
             if (def == t.lcname) {
                 if (t.matchBefore && !line.substring(0, wr.start.character).match(t.matchBefore)) continue;
                 if (t.matchAfter && !line.substring(wr.end.character).match(t.matchAfter)) continue;
-                pos = t.declarationRange.start;
+                if (t instanceof BlitzFunction) range = new vscode.Range(t.declarationRange.start, t.endPosition);
+                else range = t.declarationRange;
                 uri = t.uri;
                 if (!(t instanceof BlitzVariable)) break; // Variables can be dimmed
             }
@@ -1513,13 +1514,13 @@ class DefinitionProvider implements vscode.DefinitionProvider {
                 t.locals.forEach((loc) => {
                     if (def == loc.lcname && !((loc.matchBefore && !line.substring(0, wr.start.character).match(loc.matchBefore)) || (loc.matchAfter && !line.substring(wr.end.character).match(loc.matchAfter)))) {
                         def = '```\n' + loc.declaration + '\n```';
-                        pos = loc.declarationRange.start;
+                        range = loc.declarationRange;
                         uri = loc.uri;
                     }
                 });
             }
         }
-        if (uri && pos) return new vscode.Location(uri, pos);
+        if (uri && range) return { uri, range };
         return undefined;
     }
 

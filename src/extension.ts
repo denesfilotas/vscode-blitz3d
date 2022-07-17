@@ -1087,16 +1087,16 @@ class BlitzHoverProvider implements vscode.HoverProvider {
         const desc = new vscode.MarkdownString();
         const iwr = document.getWordRangeAtPosition(position);
         // not on whitespace
-        if (!iwr) return undefined;
+        if (!iwr) return;
         let wr: vscode.Range = iwr;
         // not on number literals
-        if (document.getText(wr).match(/^\-?[0-9\.]+$/)) return undefined;
-        if (document.lineAt(position.line).text[position.character] == ' ') return undefined;
+        if (document.getText(wr).match(/^\-?[0-9\.]+$/)) return;
+        if (document.lineAt(position.line).text[position.character] == ' ') return;
         const line = document.lineAt(position).text;
         // not in strings
-        if (isInString(line, position.character)) return undefined;
+        if (isInString(line, position.character)) return;
         // not in comments
-        if (position.character >= startOfComment(line)) return undefined;
+        if (position.character >= startOfComment(line)) return;
 
         let def = document.getText(wr).toLowerCase();
         if (def == 'end' || def == 'else') {
@@ -1318,7 +1318,7 @@ class CompletionItemProvider implements vscode.CompletionItemProvider {
             case 'variable':
                 return vscode.CompletionItemKind.Variable;
             default:
-                return undefined;
+                return;
         }
     }
     provideCompletionItems(document: vscode.TextDocument, position: vscode.Position, token: vscode.CancellationToken, context: vscode.CompletionContext): vscode.ProviderResult<vscode.CompletionItem[] | vscode.CompletionList<vscode.CompletionItem>> {
@@ -1365,7 +1365,7 @@ class CompletionItemProvider implements vscode.CompletionItemProvider {
                     }
                 }
                 return new vscode.CompletionList(r);
-            } else return undefined;
+            } else return;
         }
 
         // Types
@@ -1380,7 +1380,7 @@ class CompletionItemProvider implements vscode.CompletionItemProvider {
 
         const wr = document.getWordRangeAtPosition(position);
         const prevwr = wr && wr.start.character > 2 ? document.getWordRangeAtPosition(wr.start.translate(0, -2)) : pwr;
-        if (prevwr && document.getText(prevwr).match(/^(function|type|local|global|const|dim|field)$/i)) return undefined;
+        if (prevwr && document.getText(prevwr).match(/^(function|type|local|global|const|dim|field)$/i)) return;
 
         // general IntelliSense
         const useSnippets = vscode.workspace.getConfiguration('blitz3d.editor').get<boolean>('InsertParameterSnippets');
@@ -1482,13 +1482,13 @@ class DefinitionProvider implements vscode.DefinitionProvider {
     provideDefinition(document: vscode.TextDocument, position: vscode.Position, token: vscode.CancellationToken): vscode.ProviderResult<vscode.Definition | vscode.LocationLink[]> {
         const wr = document.getWordRangeAtPosition(position);
         // not on whitespace
-        if (!wr) return undefined;
-        if (document.lineAt(position.line).text[position.character] == ' ') return undefined;
+        if (!wr) return;
+        if (document.lineAt(position.line).text[position.character] == ' ') return;
         const line = document.lineAt(position).text;
         // not in strings
-        if (isInString(line, position.character)) return undefined;
+        if (isInString(line, position.character)) return;
         // not in comments
-        if (position.character >= startOfComment(line)) return undefined;
+        if (position.character >= startOfComment(line)) return;
 
         let def = document.getText(wr).toLowerCase();
         const tokens = generateTokens(document.uri, document.getText());
@@ -1524,7 +1524,7 @@ class DefinitionProvider implements vscode.DefinitionProvider {
             }
         }
         if (uri && range) return { uri, range };
-        return undefined;
+        return;
     }
 
 }
@@ -1538,7 +1538,7 @@ class SignatureHelpProvider implements vscode.SignatureHelpProvider {
         let ret = new vscode.SignatureHelp();
         const tokens = generateTokens(document.uri, document.getText());
         let line = document.lineAt(position).text;
-        if (position.character >= startOfComment(line)) return undefined;
+        if (position.character >= startOfComment(line)) return;
         const wordend = document.getWordRangeAtPosition(position)?.end.character;
         const endc = wordend ? wordend : position.character;
         line = line.substring(0, endc).trim().toLowerCase();

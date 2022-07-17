@@ -9,10 +9,11 @@ The ability to run programs and detect errors is supported on Windows only. Cros
 
 This update adds the following features:
 
- * Dimmed arrays are now supported, with proper code completion and signature help
- * Type detection improved
- * Added command to open examples in the editor
- * Set default encoding to Windows 1250 (can be changed in settings.json)
+- Basic formatter functionality
+- Improved signature help
+- Parameter snippets
+- Examples are replaced with links in hovers
+- Other bug fixes and performance improvements
 
 > To see all the changes, check the [changelog](CHANGELOG.md) or the [GitHub repository](https://github.com/denesfilotas/vscode-blitz3d).
 
@@ -30,6 +31,7 @@ The extension provides the following functionalities:
 - Ability to set the default file to run in launch.json
 - First compile error can be seen on every save
 - Command for browsing the builtin code examples
+- Basic document formatting
 
 > Note: The extension uses the Blitz3D default compiler for Windows. Due to its limitations, information of runtime errors cannot be extracted. This is not a loss of functionality as the default IDE behaves similarly.
 

@@ -154,7 +154,8 @@ function showErrorOnCompile(stdout: string, stderr: string) {
     }
 }
 
-function generateTokens(uri: vscode.Uri, text: string): BlitzToken[] {
+function generateTokens(uri: vscode.Uri, text: string, dir?: string | undefined): BlitzToken[] {
+    dir = dir || obtainWorkingDir(uri);
     let r: BlitzToken[] = [];
     let cType: BlitzType | undefined;
     let cStub: BlitzStub = new BlitzStub();
@@ -174,8 +175,7 @@ function generateTokens(uri: vscode.Uri, text: string): BlitzToken[] {
                 if (path.isAbsolute(infile)) {
                     infilepath = infile;
                 } else {
-                    const wsfolder = vscode.workspace.workspaceFolders?.[0];
-                    infilepath = wsfolder ? path.join(wsfolder.uri.path.substring(1), infile) : path.join(uri.path.substring(1, uri.path.lastIndexOf('/')), infile);
+                    infilepath = path.join(dir, infile);
                 }
                 let intext = '';
                 try {
@@ -183,7 +183,7 @@ function generateTokens(uri: vscode.Uri, text: string): BlitzToken[] {
                 } catch (err) {
                     intext = '';
                 }
-                if (intext.length > 0) r = r.concat(generateTokens(vscode.Uri.file(infilepath), intext));
+                if (intext.length > 0) r = r.concat(generateTokens(vscode.Uri.file(infilepath), intext, dir));
             }
         }
 
@@ -792,6 +792,14 @@ function getFieldFromNestedExpression(exp: string, name: string, tokens: BlitzTo
             }
         }
     }
+}
+
+function obtainWorkingDir(uri: vscode.Uri): string {
+    const wsfolder = vscode.workspace.workspaceFolders?.[0];
+    if (wsfolder) {
+        return wsfolder.uri.path.substring(1);
+    }
+    return uri.path.substring(1, uri.path.lastIndexOf('/'));
 }
 
 export function activate(context: vscode.ExtensionContext) {

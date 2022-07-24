@@ -188,7 +188,7 @@ function generateTokens(uri: vscode.Uri, text: string, dir?: string | undefined)
         }
 
         // parse global variables
-        if (tline.startsWith('global ')) {
+        else if (tline.startsWith('global ')) {
             const q = oline.trimStart().split('=')[0].trim();
             const vars = q.substring(7, startOfComment(q)).trim().split(',');
             for (const v of vars) {
@@ -208,7 +208,7 @@ function generateTokens(uri: vscode.Uri, text: string, dir?: string | undefined)
         }
 
         // parse locals (or at least try)
-        if (tline.startsWith('local ')) {
+        else if (tline.startsWith('local ')) {
             const q = oline.trimStart().split('=')[0].trim();
             const vars = q.substring(6, startOfComment(q)).trim().split(',');
             for (const v of vars) {
@@ -228,7 +228,7 @@ function generateTokens(uri: vscode.Uri, text: string, dir?: string | undefined)
                 }
             }
         }
-        if (tline.startsWith('const ')) {
+        else if (tline.startsWith('const ')) {
             const q = oline.trimStart().split('=')[0].trim();
             const vars = q.substring(6, startOfComment(q)).trim().split(',');
             for (const v of vars) {
@@ -250,7 +250,7 @@ function generateTokens(uri: vscode.Uri, text: string, dir?: string | undefined)
         }
 
         // parse iterators
-        if (tline.startsWith('for ')) {
+        else if (tline.startsWith('for ')) {
             const iter = oline.trimStart().substring(3).split('=')[0].trim();
             if (iter.length > 0) {
                 let dt = extractType(iter);
@@ -278,7 +278,7 @@ function generateTokens(uri: vscode.Uri, text: string, dir?: string | undefined)
                 }
             }
         }
-        if (tline.startsWith('next')) {
+        else if (tline.startsWith('next')) {
             const cit = cIterator.pop();
             if (cit) {
                 cit.endPosition = lineRange.end;
@@ -334,7 +334,7 @@ function generateTokens(uri: vscode.Uri, text: string, dir?: string | undefined)
         }
 
         // parse functions
-        if (tline.startsWith('function')) {
+        else if (tline.startsWith('function')) {
             const fn = oline.match(/(?<=\bfunction\b).+(?=\()/i)?.toString();
             if (!fn) continue;
             cFunction = new BlitzFunction(
@@ -378,11 +378,11 @@ function generateTokens(uri: vscode.Uri, text: string, dir?: string | undefined)
         }
 
         // parse types
-        if (tline.startsWith('type')) {
+        else if (tline.startsWith('type')) {
             const tn = oline.trimStart().substring(4).trim();
             if (tn.length > 0) cType = new BlitzType(tn, uri, oline.trim().split(';')[0], lineRange);
         }
-        if (cType && tline.startsWith('field')) {
+        else if (cType && tline.startsWith('field')) {
             oline.trimStart().substring(5, startOfComment(oline.trimStart())).trim().split(',').forEach(val => {
                 if (val.trim().length > 0) {
                     const field = new BlitzVariable(removeType(val), uri, 'Field ' + val.trim(), lineRange, 'field', extractType(val));
@@ -393,19 +393,19 @@ function generateTokens(uri: vscode.Uri, text: string, dir?: string | undefined)
                 }
             });
         }
-        if (cType && tline.startsWith('end type')) {
+        else if (cType && tline.startsWith('end type')) {
             cType.range = new vscode.Range(cType.declarationRange.start, lineRange.end);
             r.push(cType);
             cType = undefined;
         }
 
         // parse labels
-        if (tline.startsWith('.') && tline.length > 1) {
+        else if (tline.startsWith('.') && tline.length > 1) {
             r.push(new BlitzLabel(oline.trimStart().substring(1, startOfComment(oline.trimStart())), uri, '(label) ' + oline.trimStart(), lineRange));
         }
 
         // parse dimmed arrays
-        if (tline.startsWith('dim ')) {
+        else if (tline.startsWith('dim ')) {
             let pline = oline.trimStart().substring(4);
             let arrname = pline.split('(')[0];
             const dt = extractType(arrname);

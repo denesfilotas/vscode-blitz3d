@@ -1531,6 +1531,7 @@ class SignatureHelpProvider implements vscode.SignatureHelpProvider {
         const tokens = generateTokens(document.uri, document.getText());
         let line = document.lineAt(position).text;
         if (position.character >= startOfComment(line)) return;
+        if (line.trimStart().toLowerCase().startsWith('function')) return;
         const wordend = document.getWordRangeAtPosition(position)?.end.character;
         const endc = wordend ? wordend : position.character;
         line = line.substring(0, endc).trim().toLowerCase();

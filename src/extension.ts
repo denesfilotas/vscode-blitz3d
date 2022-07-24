@@ -187,6 +187,15 @@ function generateTokens(uri: vscode.Uri, text: string, dir?: string | undefined)
             }
         }
 
+        // change directory
+        else if (tline.startsWith('changedir')) {
+            const newdir = tline.match(/(?<=\").+(?=\")/)?.toString();
+            if (newdir) {
+                if (path.isAbsolute(newdir)) dir = newdir;
+                else dir = path.normalize(path.join(dir, newdir));
+            }
+        }
+
         // parse global variables
         else if (tline.startsWith('global ')) {
             const q = oline.trimStart().split('=')[0].trim();

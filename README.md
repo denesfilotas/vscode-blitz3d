@@ -4,7 +4,6 @@ This extension enables language support for the BlitzBasic language and extends 
 The ability to run programs and detect errors is supported on Windows only. Cross-platform Blitz3D versions are not supported yet, though most of the functionality is available on all platforms.
 > Note: This extension is in alpha phase. Bug-free experience cannot be guaranteed.
 
-
 ## Release Notes
 
 This update adds the following features:
@@ -63,7 +62,7 @@ See contributed settings in the `Feature Contributions` tab.
 
 ## Known Issues
 
- * Variables might not be recognized when no explicit declaration is present
- * Changedir command prevents the extension from importing files correctly
- * Custom commands and DLLs are not supported
- * Hangs and unexpected behaviour (without code loss) can be experienced rarely
+- Variables might not be recognized when no explicit declaration is present
+- Changedir command prevents the extension from importing files correctly
+- Custom commands and DLLs are not supported
+- Hangs and unexpected behaviour (without code loss) can be experienced rarely

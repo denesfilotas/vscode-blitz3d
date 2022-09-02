@@ -396,7 +396,7 @@ function generateTokens(uri: vscode.Uri, text: string, dir?: string | undefined)
                 if (val.trim().length > 0) {
                     const field = new BlitzVariable(removeType(val), uri, 'Field ' + val.trim(), lineRange, 'field', extractType(val));
                     field.description = oline.substring(startOfComment(oline) + 1).trim();
-                    field.matchBefore = /(Field\s.*|\\)$/i;
+                    field.matchBefore = /(Field\s.*|\\\s*)$/i;
                     field.type = 'field';
                     cType?.fields.push(field);
                 }
@@ -905,7 +905,7 @@ function updateDiagnostics(document: vscode.TextDocument) {
             });
         }
     }
-
+    diagnosticCollection.set(document.uri, diagnostics);
     // TODO check for errors by ourselves
 }
 
@@ -950,7 +950,7 @@ function compile(document: vscode.TextDocument) {
                 }
             }
         }
-        diagnosticCollection.set(document.uri, diagnostics);
+        if (diagnostics.length > 0) diagnosticCollection.set(document.uri, diagnosticCollection.get(document.uri)?.concat(diagnostics));
     });
 }
 
@@ -1123,6 +1123,7 @@ class BlitzHoverProvider implements vscode.HoverProvider {
             }
         } else if (wr.start.character > 2 && def.match(/if|function|type|select/)) {
             const nwr = document.getWordRangeAtPosition(wr.start.translate(0, -2));
+            // only one space is allowed, no need for dynamic whitespace checking
             if (nwr) {
                 const nw = document.getText(nwr).toLowerCase();
                 if (nw == 'end') {
@@ -1339,11 +1340,24 @@ class CompletionItemProvider implements vscode.CompletionItemProvider {
         // not in strings
         if (isInString(document.lineAt(position).text, position.character)) return;
 
-        const pwr = position.character >= 2 ? document.getWordRangeAtPosition(position.translate(0, -2)) : undefined;
+        let lastPos = position.translate(0, -1);
+        while (lastPos.character > 0 && document.getText(new vscode.Range(lastPos, lastPos.translate(0, 1))).match(/\s|\w/)) {
+            lastPos = lastPos.translate(0, -1);
+        }
+        const lastChar = document.getText(new vscode.Range(lastPos, lastPos.translate(0, 1)));
+        while (lastPos.character > 0 && !document.getText(new vscode.Range(lastPos, lastPos.translate(0, 1))).match(/\w/)) {
+            lastPos = lastPos.translate(0, -1);
+        }
+        const wr = document.getWordRangeAtPosition(lastPos);
+        lastPos = wr?.start.translate(0, -1) ?? lastPos;
+        while (lastPos.character > 0 && !document.getText(new vscode.Range(lastPos, lastPos.translate(0, 1))).match(/\w/)) {
+            lastPos = lastPos.translate(0, -1);
+        }
+        const pwr = document.getWordRangeAtPosition(lastPos);
         // Fields of type
-        if (context.triggerCharacter == '\\') {
-            if (pwr) {
-                const par = document.getText(pwr);
+        if (context.triggerCharacter == '\\' || lastChar == '\\') {
+            if (wr) {
+                const par = document.getText(wr).toLowerCase();
                 // look up type of parent
                 let typename = '';
                 for (const t of tokens) {
@@ -1364,6 +1378,7 @@ class CompletionItemProvider implements vscode.CompletionItemProvider {
                         }
                     }
                 }
+                typename = typename.toLowerCase();
                 for (const t of tokens) {
                     if (t instanceof BlitzType && t.lcname == typename) {
                         for (const f of t.fields) {
@@ -1380,16 +1395,14 @@ class CompletionItemProvider implements vscode.CompletionItemProvider {
         // Types
         if ((context.triggerCharacter == '.' && position.character >= 2
             && document.lineAt(position.line).text[position.character - 2].match(/\w/))
-            || document.getText(pwr).toLowerCase().match(/^new$|^each$|^first$|^last$/)) {
+            || document.getText(wr).toLowerCase().match(/^new$|^each$|^first$|^last$/)) {
             for (const t of tokens) {
                 if (t.type == 'type') r.push(new vscode.CompletionItem(t.oname, this._typeToKind(t.type)));
             }
             return new vscode.CompletionList(r);
         }
 
-        const wr = document.getWordRangeAtPosition(position);
-        const prevwr = wr && wr.start.character > 2 ? document.getWordRangeAtPosition(wr.start.translate(0, -2)) : pwr;
-        if (prevwr && document.getText(prevwr).match(/^(function|type|local|global|const|dim|field)$/i)) return;
+        if (pwr && document.getText(pwr).match(/^(function|type|local|global|const|dim|field)$/i)) return;
 
         // general IntelliSense
         const useSnippets = vscode.workspace.getConfiguration('blitz3d.editor').get<boolean>('InsertParameterSnippets');

@@ -162,6 +162,7 @@ function generateTokens(uri: vscode.Uri, text: string, dir?: string | undefined)
     let cFunction: BlitzFunction | undefined;
     let cIterator: BlitzIterator[] = [];
     const lines = text.split(/\r\n|\r|\n/);
+    let diagnostics = diagnosticCollection.get(uri)?.filter(d => d.code !== 'blitz3d-include') ?? [];
     for (let i = 0; i < lines.length; i++) {
         const oline = lines[i];
         const tline = oline.toLowerCase().trim();
@@ -181,7 +182,12 @@ function generateTokens(uri: vscode.Uri, text: string, dir?: string | undefined)
                 try {
                     intext = readFileSync(infilepath).toString();
                 } catch (err) {
-                    intext = '';
+                    diagnostics.push({
+                        message: "Unable to open include file",
+                        range: lineRange,
+                        severity: vscode.DiagnosticSeverity.Warning,
+                        code: 'blitz3d-include'
+                    });
                 }
                 if (intext.length > 0) r = r.concat(generateTokens(vscode.Uri.file(infilepath), intext, dir));
             }
@@ -426,6 +432,7 @@ function generateTokens(uri: vscode.Uri, text: string, dir?: string | undefined)
             }
         }
     }
+    diagnosticCollection.set(uri, diagnostics);
     return r;
 }
 
@@ -817,11 +824,11 @@ export function activate(context: vscode.ExtensionContext) {
     diagnosticCollection = vscode.languages.createDiagnosticCollection('blitz3d');
     context.subscriptions.push(diagnosticCollection);
     if (vscode.window.activeTextEditor) {
-        updateDiagnostics(vscode.window.activeTextEditor.document);
+        updateTodos(vscode.window.activeTextEditor.document);
         compile(vscode.window.activeTextEditor.document);
     }
     context.subscriptions.push(vscode.workspace.onDidSaveTextDocument(compile));
-    context.subscriptions.push(vscode.workspace.onDidChangeTextDocument(e => updateDiagnostics(e.document)));
+    context.subscriptions.push(vscode.workspace.onDidChangeTextDocument(e => updateTodos(e.document)));
 
     //Commands
     context.subscriptions.push(
@@ -867,33 +874,15 @@ export function deactivate(context: vscode.ExtensionContext) {
     vscode.workspace.getConfiguration('files.encoding', { languageId: 'blitz3d' }).update('files.encoding', undefined, vscode.ConfigurationTarget.Global, true);
 }
 
-function updateDiagnostics(document: vscode.TextDocument) {
+function updateTodos(document: vscode.TextDocument) {
 
     if (document.languageId != 'blitz3d') {
         diagnosticCollection.delete(document.uri);
         return;
     }
 
-    let diagnostics: vscode.Diagnostic[] = [];
+    let diagnostics = diagnosticCollection.get(document.uri)?.filter(d => d.code !== "TODO") ?? [];
 
-    // check for colon usage
-    /*
-    lines: for (let i = 0; i < document.lineCount; i++) {
-        const line = document.lineAt(i).text;
-        let instring = false;
-        for (let j = 0; j < line.length; j++) {
-            if (line[j] == '"') instring = !instring;
-            if (line[j] == ';' && !instring) continue lines;
-            if (line[j] == ':' && !instring) diagnostics.push({
-                message: 'The Blitz3D extension does not support the use of colons. Use newline instead of colons',
-                range: new vscode.Range(i, j, i, j + 1),
-                severity: vscode.DiagnosticSeverity.Warning
-            });
-        }
-    }
-    */
-
-    // implement TODOs
     const todotype = vscode.workspace.getConfiguration('blitz3d.editor').get<string>('UseTodos');
     if (todotype != 'Off') {
         for (let i = 0; i < document.lineCount; i++) {
@@ -901,12 +890,13 @@ function updateDiagnostics(document: vscode.TextDocument) {
             if (line.toLowerCase().indexOf(';;todo ') !== -1) diagnostics.push({
                 message: 'TODO: ' + line.trim().substring(7),
                 range: new vscode.Range(i, line.toLowerCase().indexOf(';;todo '), i, line.length),
-                severity: todotype == 'Information' ? vscode.DiagnosticSeverity.Information : vscode.DiagnosticSeverity.Warning
+                severity: todotype == 'Information' ? vscode.DiagnosticSeverity.Information : vscode.DiagnosticSeverity.Warning,
+                code: "TODO"
             });
         }
     }
+
     diagnosticCollection.set(document.uri, diagnostics);
-    // TODO check for errors by ourselves
 }
 
 function compile(document: vscode.TextDocument) {
@@ -916,7 +906,7 @@ function compile(document: vscode.TextDocument) {
         return;
     }
 
-    let diagnostics: vscode.Diagnostic[] = [];
+    let diagnostics = diagnosticCollection.get(document.uri)?.filter(d => d.code !== "blitzcc") ?? [];
 
     // run compiler with env got from config
     const env = process.env;
@@ -932,7 +922,8 @@ function compile(document: vscode.TextDocument) {
                 diagnostics.push({
                     message: 'BlitzPath is configured incorrectly. Compilation is unavailable.',
                     range: new vscode.Range(0, 0, 0, 0),
-                    severity: vscode.DiagnosticSeverity.Information
+                    severity: vscode.DiagnosticSeverity.Information,
+                    code: "blitzcc"
                 });
             const lines = sout.toLowerCase().split(/\r\n|\r|\n/);
             for (const l of lines) {
@@ -945,12 +936,13 @@ function compile(document: vscode.TextDocument) {
                     diagnostics.push({
                         message: msg,
                         range: new vscode.Range(startPos, startPos),
-                        severity: vscode.DiagnosticSeverity.Error
+                        severity: vscode.DiagnosticSeverity.Error,
+                        code: "blitzcc"
                     });
                 }
             }
         }
-        if (diagnostics.length > 0) diagnosticCollection.set(document.uri, diagnosticCollection.get(document.uri)?.concat(diagnostics));
+        diagnosticCollection.set(document.uri, diagnostics);
     });
 }
 

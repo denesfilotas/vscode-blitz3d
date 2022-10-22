@@ -948,7 +948,33 @@ function compile(document: vscode.TextDocument) {
         return;
     }
 
-    let diagnostics = diagnosticCollection.get(document.uri)?.filter(d => d.code !== "blitzcc") ?? [];
+    
+    const compiletype = vscode.workspace.getConfiguration('blitz3d.compilation').get<string>('AutoCompilation');
+    if (compiletype == 'None') return;
+
+    let uri: vscode.Uri;
+    if (compiletype == 'Open file') {
+        uri = document.uri;
+    } else {
+        const folder = vscode.workspace.workspaceFolders?.[0];
+        const config = vscode.workspace.getConfiguration('launch', folder?.uri);
+        try {
+            const bbfile = config.get<any[]>("configurations")?.[0].bbfile;
+            const bbpath = path.isAbsolute(bbfile) ? bbfile : path.join(folder?.uri.path.substring(1) ?? '.', bbfile);
+            uri = vscode.Uri.file(bbpath);
+        } catch {
+            uri = document.uri;
+        }
+    }
+
+    blitzcc(uri);
+
+    if (compiletype == 'Both' && uri.path != document.uri.path) blitzcc(document.uri);
+}
+
+function blitzcc(uri: vscode.Uri) {
+
+    let diagnostics = diagnosticCollection.get(uri)?.filter(d => d.code !== "blitzcc") ?? [];
 
     // run compiler with env got from config
     const env = process.env;
@@ -956,7 +982,7 @@ function compile(document: vscode.TextDocument) {
         env['PATH'] += path.delimiter + path.join(blitzpath, 'bin');
         env['BLITZPATH'] = blitzpath;
     }
-    cp.exec('blitzcc -c ' + document.fileName, env, (err, sout, serr) => {
+    cp.exec(`blitzcc -c "${uri.path.substring(1)}"`, env, (err, sout, serr) => {
         if (err) {
             if (serr.length > 0
                 || sout.trim() == "Can't find blitzpath environment variable"
@@ -984,7 +1010,7 @@ function compile(document: vscode.TextDocument) {
                 }
             }
         }
-        diagnosticCollection.set(document.uri, diagnostics);
+        diagnosticCollection.set(uri, diagnostics);
     });
 }
 

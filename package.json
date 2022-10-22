@@ -198,6 +198,28 @@
                         "default": "Information"
                     }
                 }
+            },
+            {
+                "title": "Compilation",
+                "properties": {
+                    "blitz3d.compilation.AutoCompilation": {
+                        "type": "string",
+                        "enum": [
+                            "Launch file",
+                            "Open file",
+                            "Both",
+                            "None"
+                        ],
+                        "enumDescriptions": [
+                            "Compile the bbfile specified in launch configuration (recursive; falls back to open file if no bbfile is specified)",
+                            "Compile the file which was saved",
+                            "Compile both files",
+                            "Don't compile automatically"
+                        ],
+                        "description": "Choose which files to be checked by the compiler on every save",
+                        "default": "Launch file"
+                    }
+                }
             }
         ]
     },

@@ -856,6 +856,10 @@ export function activate(context: vscode.ExtensionContext) {
         updateTodos(e.document);
         blitzCtx = blitzCtx.filter(c => c.uri.path != e.document.uri.path).concat(generateContext(e.document.uri, e.document.getText(), undefined, true));
     }));
+    context.subscriptions.push(vscode.workspace.onDidOpenTextDocument(document => {
+        const generatedCtx = generateContext(document.uri, document.getText());
+        blitzCtx = blitzCtx.filter(c => !generatedCtx.map(gc => gc.uri).includes(c.uri)).concat(generatedCtx);
+    }));
 
     //Commands
     context.subscriptions.push(

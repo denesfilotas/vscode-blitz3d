@@ -914,6 +914,7 @@ export function activate(context: vscode.ExtensionContext) {
 
 export function deactivate(context: vscode.ExtensionContext) {
     vscode.workspace.getConfiguration('files.encoding', { languageId: 'blitz3d' }).update('files.encoding', undefined, vscode.ConfigurationTarget.Global, true);
+    diagnosticCollection.dispose();
 }
 
 function updateTodos(document: vscode.TextDocument) {
@@ -948,7 +949,6 @@ function compile(document: vscode.TextDocument) {
         return;
     }
 
-    
     const compiletype = vscode.workspace.getConfiguration('blitz3d.compilation').get<string>('AutoCompilation');
     if (compiletype == 'None') return;
 
@@ -974,8 +974,6 @@ function compile(document: vscode.TextDocument) {
 
 function blitzcc(uri: vscode.Uri) {
 
-    let diagnostics = diagnosticCollection.get(uri)?.filter(d => d.code !== "blitzcc") ?? [];
-
     // run compiler with env got from config
     const env = process.env;
     if (blitzpath.length > 0) {
@@ -986,31 +984,37 @@ function blitzcc(uri: vscode.Uri) {
         if (err) {
             if (serr.length > 0
                 || sout.trim() == "Can't find blitzpath environment variable"
-                || sout.trim() == "Unable to open linker.dll")
+                || sout.trim() == "Unable to open linker.dll") {
+                let diagnostics = diagnosticCollection.get(uri)?.filter(d => d.code !== "blitzcc") ?? [];
                 diagnostics.push({
                     message: 'BlitzPath is configured incorrectly. Compilation is unavailable.',
                     range: new vscode.Range(0, 0, 0, 0),
                     severity: vscode.DiagnosticSeverity.Information,
                     code: "blitzcc"
                 });
+                diagnosticCollection.set(uri, diagnostics);
+            }
             const lines = sout.toLowerCase().split(/\r\n|\r|\n/);
             for (const l of lines) {
                 if (l.indexOf(':') >= 0 && !l.startsWith('compiling')) {
                     const s = l.split(':');
                     const msg = s[s.length - 1];
+                    const file = l.split('"')[1];
+                    const erruri = vscode.Uri.file(file);
                     const lineno = parseInt(s[s.length - 3]) - 1;
                     const charno = parseInt(s[s.length - 2]);
                     const startPos = new vscode.Position(lineno, charno);
+                    let diagnostics = diagnosticCollection.get(erruri)?.filter(d => d.code !== "blitzcc") ?? [];
                     diagnostics.push({
                         message: msg,
                         range: new vscode.Range(startPos, startPos),
                         severity: vscode.DiagnosticSeverity.Error,
                         code: "blitzcc"
                     });
+                    diagnosticCollection.set(erruri, diagnostics);
                 }
             }
         }
-        diagnosticCollection.set(uri, diagnostics);
     });
 }
 

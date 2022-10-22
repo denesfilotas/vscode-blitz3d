@@ -193,26 +193,28 @@ function generateContext(uri: vscode.Uri, text: string, dir?: string | undefined
 
         // get tokens from included file
         if (tline.startsWith('include')) {
-            const infile = tline.match(/(?<=\").+(?=\")/)?.toString();
-            if (infile) {
-                let infilepath: string;
-                if (path.isAbsolute(infile)) {
-                    infilepath = infile;
-                } else {
-                    infilepath = path.join(dir, infile);
+            if (!isUpdate) { // Don't return includes' tokens if only this file is changed
+                const infile = tline.match(/(?<=\").+(?=\")/)?.toString();
+                if (infile) {
+                    let infilepath: string;
+                    if (path.isAbsolute(infile)) {
+                        infilepath = infile;
+                    } else {
+                        infilepath = path.join(dir, infile);
+                    }
+                    let intext = '';
+                    try {
+                        intext = readFileSync(infilepath).toString();
+                    } catch (err) {
+                        diagnostics.push({
+                            message: "Unable to open include file",
+                            range: lineRange,
+                            severity: vscode.DiagnosticSeverity.Warning,
+                            code: 'blitz3d-include'
+                        });
+                    }
+                    if (intext.length > 0) r = r.concat(generateContext(vscode.Uri.file(infilepath), intext, dir));
                 }
-                let intext = '';
-                try {
-                    intext = readFileSync(infilepath).toString();
-                } catch (err) {
-                    diagnostics.push({
-                        message: "Unable to open include file",
-                        range: lineRange,
-                        severity: vscode.DiagnosticSeverity.Warning,
-                        code: 'blitz3d-include'
-                    });
-                }
-                if (intext.length > 0) r = r.concat(generateContext(vscode.Uri.file(infilepath), intext, dir));
             }
         }
 
@@ -902,6 +904,11 @@ export function activate(context: vscode.ExtensionContext) {
     let stubdoc = readFileSync(stubpath);
     stubs = loadDefaultStubs(stubdoc);
     blitzCtx = createLaunchContext();
+    if (blitzCtx.length == 0 && vscode.window.activeTextEditor) {
+        const document = vscode.window.activeTextEditor.document;
+        const generatedCtx = generateContext(document.uri, document.getText());
+        blitzCtx = blitzCtx.filter(c => !generatedCtx.map(gc => gc.uri).includes(c.uri)).concat(generatedCtx);
+    }
     console.log('Blitz3D extension activated.');
 }
 

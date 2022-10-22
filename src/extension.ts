@@ -192,7 +192,7 @@ function generateContext(uri: vscode.Uri, text: string, dir?: string | undefined
         const lineRange = new vscode.Range(i, 0, i, oline.length);
 
         // get tokens from included file
-        if (tline.startsWith('include')) {
+        if (tline.match(/^include\s/)) {
             if (!isUpdate) { // Don't return includes' tokens if only this file is changed
                 const infile = tline.match(/(?<=\").+(?=\")/)?.toString();
                 if (infile) {
@@ -219,7 +219,7 @@ function generateContext(uri: vscode.Uri, text: string, dir?: string | undefined
         }
 
         // change directory
-        else if (tline.startsWith('changedir')) {
+        else if (tline.match(/^changedir\s/)) {
             const newdir = tline.match(/(?<=\").+(?=\")/)?.toString();
             if (newdir) {
                 if (path.isAbsolute(newdir)) dir = newdir;
@@ -228,7 +228,7 @@ function generateContext(uri: vscode.Uri, text: string, dir?: string | undefined
         }
 
         // parse global variables
-        else if (tline.startsWith('global ')) {
+        else if (tline.match(/^global\s/)) {
             const q = oline.trimStart().split('=')[0].trim();
             const vars = q.substring(7, startOfComment(q)).trim().split(',');
             for (const v of vars) {
@@ -248,7 +248,7 @@ function generateContext(uri: vscode.Uri, text: string, dir?: string | undefined
         }
 
         // parse locals (or at least try)
-        else if (tline.startsWith('local ')) {
+        else if (tline.match(/^local\s/)) {
             const q = oline.trimStart().split('=')[0].trim();
             const vars = q.substring(6, startOfComment(q)).trim().split(',');
             for (const v of vars) {
@@ -268,7 +268,7 @@ function generateContext(uri: vscode.Uri, text: string, dir?: string | undefined
                 }
             }
         }
-        else if (tline.startsWith('const ')) {
+        else if (tline.match(/^const\s/)) {
             const q = oline.trimStart().split('=')[0].trim();
             const vars = q.substring(6, startOfComment(q)).trim().split(',');
             for (const v of vars) {
@@ -290,7 +290,7 @@ function generateContext(uri: vscode.Uri, text: string, dir?: string | undefined
         }
 
         // parse iterators
-        else if (tline.startsWith('for ')) {
+        else if (tline.match(/^for\s/)) {
             const iter = oline.trimStart().substring(3).split('=')[0].trim();
             if (iter.length > 0) {
                 let dt = extractType(iter);
@@ -318,7 +318,7 @@ function generateContext(uri: vscode.Uri, text: string, dir?: string | undefined
                 }
             }
         }
-        else if (tline.startsWith('next')) {
+        else if (tline.match(/^next\s/)) {
             const cit = cIterator.pop();
             if (cit) {
                 cit.endPosition = lineRange.end;
@@ -363,9 +363,9 @@ function generateContext(uri: vscode.Uri, text: string, dir?: string | undefined
         }
 
         // parse bbdoc
-        if (tline.startsWith(';; ')) {
+        if (tline.match(/^;;\s/)) {
             cStub.description.push(oline.trim().substring(3));
-        } else if (tline.startsWith(';;param ')) {
+        } else if (tline.match(/^;;param\s/)) {
             const fstspc = tline.indexOf(' ', 8);
             if (fstspc > -1) {
                 const param = oline.trim().substring(7, fstspc);
@@ -374,7 +374,7 @@ function generateContext(uri: vscode.Uri, text: string, dir?: string | undefined
         }
 
         // parse functions
-        else if (tline.startsWith('function')) {
+        else if (tline.match(/^function\s/)) {
             const fn = oline.match(/(?<=\bfunction\b).+(?=\()/i)?.toString();
             if (!fn) continue;
             cFunction = new BlitzFunction(
@@ -418,7 +418,7 @@ function generateContext(uri: vscode.Uri, text: string, dir?: string | undefined
         }
 
         // parse types
-        else if (tline.startsWith('type')) {
+        else if (tline.match(/^type\s/)) {
             const tn = oline.trimStart().substring(4).trim();
             if (tn.length > 0) cType = new BlitzType(tn, uri, oline.trim().split(';')[0], lineRange);
         }
@@ -445,7 +445,7 @@ function generateContext(uri: vscode.Uri, text: string, dir?: string | undefined
         }
 
         // parse dimmed arrays
-        else if (tline.startsWith('dim ')) {
+        else if (tline.match(/^dim\s/)) {
             let pline = oline.trimStart().substring(4);
             let arrname = pline.split('(')[0];
             const dt = extractType(arrname);

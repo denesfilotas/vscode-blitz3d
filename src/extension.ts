@@ -890,7 +890,10 @@ export function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(vscode.languages.registerDocumentFormattingEditProvider('blitz3d', new DocumentFormattingEditProvider()));
 
     // Configurations
-    context.subscriptions.push(vscode.workspace.onDidChangeConfiguration(event => updateBlitzPath()));
+    context.subscriptions.push(vscode.workspace.onDidChangeConfiguration(event => {
+        updateBlitzPath();
+        blitzCtx = createLaunchContext();
+    }));
     vscode.workspace.getConfiguration('files.encoding', { languageId: 'blitz3d' }).update('files.encoding', 'windows1250', vscode.ConfigurationTarget.Global, true);
 
     // Load stubs to use immediately

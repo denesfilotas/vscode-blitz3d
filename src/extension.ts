@@ -1,7 +1,7 @@
 import { DebugSession, ExitedEvent, OutputEvent, TerminatedEvent } from '@vscode/debugadapter';
 import { DebugProtocol } from '@vscode/debugprotocol';
 import * as cp from 'child_process';
-import { createWriteStream, readdirSync, readFileSync } from 'fs';
+import { createWriteStream, readdirSync, readFileSync, existsSync } from 'fs';
 import * as path from 'path';
 import * as treekill from "tree-kill";
 import * as vscode from 'vscode';
@@ -901,8 +901,13 @@ export function activate(context: vscode.ExtensionContext) {
     // Load stubs to use immediately
     updateBlitzPath();
     stubpath = context.asAbsolutePath('stubs.bb');
-    let stubdoc = readFileSync(stubpath);
-    stubs = loadDefaultStubs(stubdoc);
+    if (existsSync(stubpath)) {
+        let stubdoc = readFileSync(stubpath);
+        stubs = loadDefaultStubs(stubdoc);
+    } else {
+        vscode.window.showInformationMessage('Blitz3D builtin keywords are not stored. Generate stubs from your Blitz3D installation.', 'Generate stubs')
+            .then(resp => { if (resp) generateStubs(); });
+    }
     blitzCtx = createLaunchContext();
     if (blitzCtx.length == 0 && vscode.window.activeTextEditor) {
         const document = vscode.window.activeTextEditor.document;

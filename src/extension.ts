@@ -9,6 +9,7 @@ import * as vscode from 'vscode';
 const tokenTypes = new Map<string, number>();
 const tokenModifiers = new Map<string, number>();
 let diagnosticCollection: vscode.DiagnosticCollection;
+let compilationErrors: vscode.DiagnosticCollection;
 let stubs: BlitzStub[];
 let stubpath: string;
 let blitzpath = 'C:\\Program Files (x86)\\Blitz3D';
@@ -874,6 +875,8 @@ export function activate(context: vscode.ExtensionContext) {
     // Diagnostics
     diagnosticCollection = vscode.languages.createDiagnosticCollection('blitz3d');
     context.subscriptions.push(diagnosticCollection);
+    compilationErrors = vscode.languages.createDiagnosticCollection('blitzcc');
+    context.subscriptions.push(compilationErrors);
     if (vscode.window.activeTextEditor) {
         updateTodos(vscode.window.activeTextEditor.document);
         compile(vscode.window.activeTextEditor.document);
@@ -955,6 +958,7 @@ export function activate(context: vscode.ExtensionContext) {
 export function deactivate(context: vscode.ExtensionContext) {
     vscode.workspace.getConfiguration('files.encoding', { languageId: 'blitz3d' }).update('files.encoding', undefined, vscode.ConfigurationTarget.Global, true);
     diagnosticCollection.dispose();
+    compilationErrors.dispose();
 }
 
 function updateTodos(document: vscode.TextDocument) {
@@ -984,10 +988,7 @@ function updateTodos(document: vscode.TextDocument) {
 
 function compile(document: vscode.TextDocument) {
 
-    if (document.languageId != 'blitz3d') {
-        diagnosticCollection.delete(document.uri);
-        return;
-    }
+    compilationErrors.clear();
 
     const compiletype = vscode.workspace.getConfiguration('blitz3d.compilation').get<string>('AutoCompilation');
     if (compiletype == 'None') return;
@@ -1035,6 +1036,7 @@ function blitzcc(uri: vscode.Uri) {
                 diagnosticCollection.set(uri, diagnostics);
             }
             const lines = sout.toLowerCase().split(/\r\n|\r|\n/);
+            const diagnostics = [];
             for (const l of lines) {
                 if (l.indexOf(':') >= 0 && !l.startsWith('compiling')) {
                     const s = l.split(':');
@@ -1044,14 +1046,13 @@ function blitzcc(uri: vscode.Uri) {
                     const lineno = parseInt(s[s.length - 3]) - 1;
                     const charno = parseInt(s[s.length - 2]);
                     const startPos = new vscode.Position(lineno, charno);
-                    let diagnostics = diagnosticCollection.get(erruri)?.filter(d => d.code !== "blitzcc") ?? [];
                     diagnostics.push({
                         message: msg,
                         range: new vscode.Range(startPos, startPos),
                         severity: vscode.DiagnosticSeverity.Error,
                         code: "blitzcc"
                     });
-                    diagnosticCollection.set(erruri, diagnostics);
+                    compilationErrors.set(erruri, diagnostics);
                 }
             }
         }

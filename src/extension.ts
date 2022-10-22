@@ -1425,7 +1425,7 @@ class CompletionItemProvider implements vscode.CompletionItemProvider {
             lastPos = lastPos.translate(0, -1);
         }
         const wr = document.getWordRangeAtPosition(lastPos);
-        lastPos = wr?.start.translate(0, -1) ?? lastPos;
+        if (wr && wr.start.character > 0) lastPos = wr.start.translate(0, -1);
         while (lastPos.character > 0 && !document.getText(new vscode.Range(lastPos, lastPos.translate(0, 1))).match(/\w/)) {
             lastPos = lastPos.translate(0, -1);
         }

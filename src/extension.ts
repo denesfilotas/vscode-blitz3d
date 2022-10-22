@@ -213,7 +213,10 @@ function generateContext(uri: vscode.Uri, text: string, dir?: string | undefined
                             code: 'blitz3d-include'
                         });
                     }
-                    if (intext.length > 0) r = r.concat(generateContext(vscode.Uri.file(infilepath), intext, dir));
+                    const inuri = vscode.Uri.file(infilepath);
+                    const inCtx = generateContext(inuri, intext, dir);
+                    const inpaths = inCtx.map(c => c.uri.path);
+                    if (intext.length > 0) r = r.filter(c => !inpaths.includes(c.uri.path)).concat(inCtx);
                 }
             }
         }
@@ -458,6 +461,7 @@ function generateContext(uri: vscode.Uri, text: string, dir?: string | undefined
         }
     }
     diagnosticCollection.set(uri, diagnostics);
+    r = r.filter(c => c.uri.path != uri.path);
     r.unshift({ uri, tokens });
     return r;
 }
@@ -856,11 +860,14 @@ export function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(vscode.workspace.onDidSaveTextDocument(compile));
     context.subscriptions.push(vscode.workspace.onDidChangeTextDocument(e => {
         updateTodos(e.document);
-        blitzCtx = blitzCtx.filter(c => c.uri.path != e.document.uri.path).concat(generateContext(e.document.uri, e.document.getText(), undefined, true));
+        const generatedCtx = generateContext(e.document.uri, e.document.getText());
+        const generatedPaths = generatedCtx.map(gc => gc.uri.path);
+        blitzCtx = blitzCtx.filter(c => !generatedPaths.includes(c.uri.path)).concat(generatedCtx);
     }));
     context.subscriptions.push(vscode.workspace.onDidOpenTextDocument(document => {
         const generatedCtx = generateContext(document.uri, document.getText());
-        blitzCtx = blitzCtx.filter(c => !generatedCtx.map(gc => gc.uri).includes(c.uri)).concat(generatedCtx);
+        const generatedPaths = generatedCtx.map(gc => gc.uri.path);
+        blitzCtx = blitzCtx.filter(c => !generatedPaths.includes(c.uri.path)).concat(generatedCtx);
     }));
 
     //Commands

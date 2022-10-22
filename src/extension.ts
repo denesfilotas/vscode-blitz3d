@@ -102,6 +102,28 @@ enum StubGenState {
     done
 }
 
+type BlitzTokenCollection = {
+    uri: vscode.Uri,
+    tokens: BlitzToken[];
+};
+type BlitzContext = BlitzTokenCollection[];
+
+let blitzCtx: BlitzContext = [];
+
+function createLaunchContext(): BlitzContext {
+    const folder = vscode.workspace.workspaceFolders?.[0];
+    const config = vscode.workspace.getConfiguration('launch', folder?.uri);
+    let bburi;
+    try {
+        const bbfile = config.get<any[]>("configurations")?.[0].bbfile;
+        const bbpath = path.isAbsolute(bbfile) ? bbfile : path.join(folder?.uri.path.substring(1) ?? '.', bbfile);
+        bburi = vscode.Uri.file(bbpath);
+        return generateContext(bburi, readFileSync(bbpath).toString());
+    } catch {
+        return [];
+    }
+}
+
 function updateBlitzPath() {
     const config: string | undefined = vscode.workspace.getConfiguration('blitz3d.installation').get('BlitzPath');
     blitzpath = config ? config : 'C:\\Program Files (x86)\\Blitz3D';
@@ -154,9 +176,10 @@ function showErrorOnCompile(stdout: string, stderr: string) {
     }
 }
 
-function generateTokens(uri: vscode.Uri, text: string, dir?: string | undefined): BlitzToken[] {
+function generateContext(uri: vscode.Uri, text: string, dir?: string | undefined, isUpdate?: boolean): BlitzContext {
     dir = dir || obtainWorkingDir(uri);
-    let r: BlitzToken[] = [];
+    let r: BlitzContext = [];
+    const tokens: BlitzToken[] = [];
     let cType: BlitzType | undefined;
     let cStub: BlitzStub = new BlitzStub();
     let cFunction: BlitzFunction | undefined;
@@ -189,7 +212,7 @@ function generateTokens(uri: vscode.Uri, text: string, dir?: string | undefined)
                         code: 'blitz3d-include'
                     });
                 }
-                if (intext.length > 0) r = r.concat(generateTokens(vscode.Uri.file(infilepath), intext, dir));
+                if (intext.length > 0) r = r.concat(generateContext(vscode.Uri.file(infilepath), intext, dir));
             }
         }
 
@@ -217,7 +240,7 @@ function generateTokens(uri: vscode.Uri, text: string, dir?: string | undefined)
                         extractType(q)
                     );
                     bv.description = oline.substring(startOfComment(oline) + 1).trim();
-                    r.push(bv);
+                    tokens.push(bv);
                 }
             }
         }
@@ -239,7 +262,7 @@ function generateTokens(uri: vscode.Uri, text: string, dir?: string | undefined)
                     bv.description = oline.substring(startOfComment(oline) + 1).trim();
                     if (cFunction) {
                         cFunction.locals.push(bv);
-                    } else r.push(bv);
+                    } else tokens.push(bv);
                 }
             }
         }
@@ -259,7 +282,7 @@ function generateTokens(uri: vscode.Uri, text: string, dir?: string | undefined)
                     bv.description = oline.substring(startOfComment(oline) + 1).trim();
                     if (cFunction) {
                         cFunction.locals.push(bv);
-                    } else r.push(bv);
+                    } else tokens.push(bv);
                 }
             }
         }
@@ -275,7 +298,7 @@ function generateTokens(uri: vscode.Uri, text: string, dir?: string | undefined)
                         l = true;
                         break;
                     }
-                } else for (const t of r) {
+                } else for (const t of tokens) {
                     if (t.lcname == removeType(tline.substring(4).split('=')[0].trim())) {
                         l = true;
                         break;
@@ -298,7 +321,7 @@ function generateTokens(uri: vscode.Uri, text: string, dir?: string | undefined)
             if (cit) {
                 cit.endPosition = lineRange.end;
                 if (cFunction) cFunction.locals.push(cit);
-                else r.push(cit);
+                else tokens.push(cit);
             }
         }
 
@@ -315,7 +338,7 @@ function generateTokens(uri: vscode.Uri, text: string, dir?: string | undefined)
                         break;
                     }
                 }
-                if (!l) for (const t of r) {
+                if (!l) for (const t of tokens) {
                     if (t.lcname == removeType(tline.split('=')[0].trim())) {
                         l = true;
                         break;
@@ -332,7 +355,7 @@ function generateTokens(uri: vscode.Uri, text: string, dir?: string | undefined)
                     );
                     v.description = oline.substring(startOfComment(oline) + 1).trim();
                     if (cFunction) cFunction.locals.push(v);
-                    else r.push(v);
+                    else tokens.push(v);
                 }
             }
         }
@@ -388,7 +411,7 @@ function generateTokens(uri: vscode.Uri, text: string, dir?: string | undefined)
         } else if (cFunction && tline.startsWith('end function')) {
             cFunction.endPosition = lineRange.end;
             cFunction.range = new vscode.Range(cFunction.declarationRange.start, lineRange.end);
-            r.push(cFunction);
+            tokens.push(cFunction);
             cFunction = undefined;
         }
 
@@ -410,13 +433,13 @@ function generateTokens(uri: vscode.Uri, text: string, dir?: string | undefined)
         }
         else if (cType && tline.startsWith('end type')) {
             cType.range = new vscode.Range(cType.declarationRange.start, lineRange.end);
-            r.push(cType);
+            tokens.push(cType);
             cType = undefined;
         }
 
         // parse labels
         else if (tline.startsWith('.') && tline.length > 1) {
-            r.push(new BlitzLabel(oline.trimStart().substring(1, startOfComment(oline.trimStart())), uri, '(label) ' + oline.trimStart(), lineRange));
+            tokens.push(new BlitzLabel(oline.trimStart().substring(1, startOfComment(oline.trimStart())), uri, '(label) ' + oline.trimStart(), lineRange));
         }
 
         // parse dimmed arrays
@@ -428,11 +451,12 @@ function generateTokens(uri: vscode.Uri, text: string, dir?: string | undefined)
             const qline = pline.substring(pline.indexOf('(') + 1, pline.indexOf(')'));
             if (pline.length > 0 && arrname.length > 0) {
                 const dims = qline.split(',').length;
-                r.push(new BlitzDimmedArray(arrname, uri, oline.substring(0, startOfComment(oline)).trim(), lineRange, dims, dt));
+                tokens.push(new BlitzDimmedArray(arrname, uri, oline.substring(0, startOfComment(oline)).trim(), lineRange, dims, dt));
             }
         }
     }
     diagnosticCollection.set(uri, diagnostics);
+    r.unshift({ uri, tokens });
     return r;
 }
 
@@ -767,7 +791,7 @@ function getFieldFromNestedExpression(exp: string, name: string, tokens: BlitzTo
         tlu: for (const t of tokens
             .concat((<Array<BlitzFunction>>tokens.filter(
                 t => t instanceof BlitzFunction
-                    && location.uri == t.uri
+                    && location.uri.path == t.uri.path
                     && location.range.start.isAfter(t.declarationRange.start)
                     && location.range.end.isBefore(t.range.end)))
                 .flatMap(t => t.locals))) {
@@ -828,7 +852,10 @@ export function activate(context: vscode.ExtensionContext) {
         compile(vscode.window.activeTextEditor.document);
     }
     context.subscriptions.push(vscode.workspace.onDidSaveTextDocument(compile));
-    context.subscriptions.push(vscode.workspace.onDidChangeTextDocument(e => updateTodos(e.document)));
+    context.subscriptions.push(vscode.workspace.onDidChangeTextDocument(e => {
+        updateTodos(e.document);
+        blitzCtx = blitzCtx.filter(c => c.uri.path != e.document.uri.path).concat(generateContext(e.document.uri, e.document.getText(), undefined, true));
+    }));
 
     //Commands
     context.subscriptions.push(
@@ -867,6 +894,7 @@ export function activate(context: vscode.ExtensionContext) {
     stubpath = context.asAbsolutePath('stubs.bb');
     let stubdoc = readFileSync(stubpath);
     stubs = loadDefaultStubs(stubdoc);
+    blitzCtx = createLaunchContext();
     console.log('Blitz3D extension activated.');
 }
 
@@ -989,7 +1017,7 @@ class DocumentSemanticTokensProvider implements vscode.DocumentSemanticTokensPro
     static _parseText(uri: vscode.Uri, text: string): IParsedToken[] {
         const r: IParsedToken[] = [];
         const lines = text.split(/\r\n|\r|\n/);
-        let tokens: BlitzToken[] = generateTokens(uri, text);
+        const tokens: BlitzToken[] = blitzCtx.flatMap(c => c.tokens);
         for (let i = 0; i < lines.length; i++) {
             const oline = lines[i].toLowerCase();
             const tline = oline.trim();
@@ -1016,7 +1044,7 @@ class DocumentSemanticTokensProvider implements vscode.DocumentSemanticTokensPro
                         });
                     }
                 }
-                if (t instanceof BlitzFunction && t.uri == uri && i >= t.declarationRange.start.line && i < t.endPosition.line) t.locals.forEach((loc) => {
+                if (t instanceof BlitzFunction && t.uri.path == uri.path && i >= t.declarationRange.start.line && i < t.endPosition.line) t.locals.forEach((loc) => {
                     for (let st = oline.indexOf(loc.lcname); st != -1 && (scpos === -1 || st < oscpos); st = oline.indexOf(loc.lcname, st + 1)) {
                         // not in strings
                         if (isInString(oline, st)) continue;
@@ -1151,7 +1179,7 @@ class BlitzHoverProvider implements vscode.HoverProvider {
                 break;
             }
         }
-        const tokens = generateTokens(document.uri, document.getText());
+        const tokens: BlitzToken[] = blitzCtx.flatMap(c => c.tokens);
 
         // check if hovered over a field
         const parents: string[] = [];
@@ -1169,7 +1197,7 @@ class BlitzHoverProvider implements vscode.HoverProvider {
 
         let newdef = '', priornewdef = '';
         for (const t of tokens) {
-            if (t instanceof BlitzFunction && t.uri == document.uri && position.isAfter(t.declarationRange.start) && position.isBefore(t.endPosition)) {
+            if (t instanceof BlitzFunction && t.uri.path == document.uri.path && position.isAfter(t.declarationRange.start) && position.isBefore(t.endPosition)) {
                 for (const loc of t.locals) {
                     if (def == loc.lcname && !((loc.matchBefore && !line.substring(0, wr.start.character).match(loc.matchBefore)) || (loc.matchAfter && !line.substring(wr.end.character).match(loc.matchAfter)))) {
                         priornewdef = '```\n' + loc.declaration + '\n```';
@@ -1283,10 +1311,10 @@ class DocumentSymbolProvider implements vscode.DocumentSymbolProvider {
             //return funcs.concat(types).concat(labels);
         }
         const includeParams = vscode.workspace.getConfiguration('blitz3d.outline').get<boolean>('ParametersInOutline');
-        const tokens = generateTokens(document.uri, document.getText());
+        const tokens = blitzCtx.flatMap(c => c.tokens);
         const symbols: vscode.DocumentSymbol[] = [];
         for (const t of tokens) {
-            if (t.uri == document.uri) {
+            if (t.uri.path == document.uri.path) {
                 let dataType = t.type;
                 if (t instanceof BlitzFunction) dataType = t.returnType;
                 if (t instanceof BlitzVariable) dataType = t.dataType;
@@ -1324,7 +1352,7 @@ class CompletionItemProvider implements vscode.CompletionItemProvider {
         }
     }
     provideCompletionItems(document: vscode.TextDocument, position: vscode.Position, token: vscode.CancellationToken, context: vscode.CompletionContext): vscode.ProviderResult<vscode.CompletionItem[] | vscode.CompletionList<vscode.CompletionItem>> {
-        const tokens = generateTokens(document.uri, document.getText());
+        const tokens = blitzCtx.flatMap(c => c.tokens);
         const r: vscode.CompletionItem[] = [];
 
         // not in comments
@@ -1425,7 +1453,7 @@ class CompletionItemProvider implements vscode.CompletionItemProvider {
                     command: 'editor.action.triggerParameterHints'
                 };
                 ci.documentation = new vscode.MarkdownString(t.stub?.description.join('  \n'));
-                if (position.isAfter(t.declarationRange.start) && position.isBefore(t.endPosition) && document.uri == t.uri) {
+                if (position.isAfter(t.declarationRange.start) && position.isBefore(t.endPosition) && document.uri.path == t.uri.path) {
                     t.locals.forEach(loc => {
                         r.push(new vscode.CompletionItem({ label: loc.oname, detail: (loc.dataType.charAt(0).match(/\w/) ? '.' : '') + loc.dataType, description: '(local) ' + (loc.description ? loc.description : '') }, vscode.CompletionItemKind.Variable));
                     });
@@ -1505,7 +1533,7 @@ class DefinitionProvider implements vscode.DefinitionProvider {
         if (position.character >= startOfComment(line)) return;
 
         let def = document.getText(wr).toLowerCase();
-        const tokens = generateTokens(document.uri, document.getText());
+        const tokens = blitzCtx.flatMap(c => c.tokens);
 
         // Check for field declaration
         const field = getFieldFromNestedExpression(line.substring(0, wr.start.character), def, tokens, new vscode.Location(document.uri, position));
@@ -1527,7 +1555,7 @@ class DefinitionProvider implements vscode.DefinitionProvider {
                 uri = t.uri;
                 if (!(t instanceof BlitzVariable)) break; // Variables can be dimmed
             }
-            if (t instanceof BlitzFunction && t.uri == document.uri && position.isAfter(t.declarationRange.start) && position.isBefore(t.endPosition)) {
+            if (t instanceof BlitzFunction && t.uri.path == document.uri.path && position.isAfter(t.declarationRange.start) && position.isBefore(t.endPosition)) {
                 t.locals.forEach((loc) => {
                     if (def == loc.lcname && !((loc.matchBefore && !line.substring(0, wr.start.character).match(loc.matchBefore)) || (loc.matchAfter && !line.substring(wr.end.character).match(loc.matchAfter)))) {
                         def = '```\n' + loc.declaration + '\n```';
@@ -1550,7 +1578,7 @@ class SignatureHelpProvider implements vscode.SignatureHelpProvider {
 
     provideSignatureHelp(document: vscode.TextDocument, position: vscode.Position, token: vscode.CancellationToken, context: vscode.SignatureHelpContext): vscode.ProviderResult<vscode.SignatureHelp> {
         let ret = new vscode.SignatureHelp();
-        const tokens = generateTokens(document.uri, document.getText());
+        const tokens = blitzCtx.flatMap(c => c.tokens);
         let line = document.lineAt(position).text;
         if (position.character >= startOfComment(line)) return;
         if (line.trimStart().toLowerCase().startsWith('function')) return;

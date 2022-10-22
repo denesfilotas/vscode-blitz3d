@@ -19,6 +19,7 @@ class BlitzStub {
     parameters: string[] = [];
     description: string[] = [];
     example: string = '';
+    snippet?: vscode.SnippetString;
 }
 
 class BlitzToken {
@@ -550,12 +551,32 @@ function loadDefaultStubs(document: Buffer): BlitzStub[] {
             if (!(name.startsWith('End') || name.startsWith('Else'))) name = name.substring(0, name.indexOf(' ') == -1 ? name.length : name.indexOf(' '));
             name = removeType(name);
         } else if (line.startsWith('end function')) {
+            const snip = new vscode.SnippetString(name);
+            const useBrackets = vscode.workspace.getConfiguration('blitz3d.editor').get<boolean>('UseBracketsEverywhere');
+            const isKw = isBlitzKeyword(name.split(' ')[0]);
+            if ((useBrackets && !isKw) || declaration.substring(9).includes('(')) snip.appendText('(');
+            else snip.appendText(' ');
+            const params: string[] = [];
+            const dec = declaration.substring(10).replace('[', '').replace(/,\s*,/, ',').replace(']', '');
+            const op = dec.indexOf('(') == -1 ? dec.indexOf(' ') : dec.indexOf('(');
+            if (op > -1) {
+                const cp = dec.indexOf(')') == -1 ? dec.length : dec.indexOf(')');
+                const pars = dec.substring(op + 1, cp).split(',');
+                for (const p of pars) params.push(removeType(p));
+                for (let i = 0; i < params.length; i++) {
+                    if (i < paramLines.length && paramLines[i].includes('optional')) continue;
+                    if (i != 0) snip.appendText(', ');
+                    snip.appendPlaceholder(removeType(params[i]));
+                }
+            }
+            if ((useBrackets && !isKw) || declaration.substring(9).includes('(')) snip.appendText(')');
             r.push({
                 name: name,
                 declaration: declaration,
                 description: descLines,
                 parameters: paramLines,
-                example: exampleLines.join('  \n')
+                example: exampleLines.join('  \n'),
+                snippet: snip
             });
             descLines = [];
             paramLines = [];
@@ -900,7 +921,14 @@ export function activate(context: vscode.ExtensionContext) {
 
     // Configurations
     context.subscriptions.push(vscode.workspace.onDidChangeConfiguration(event => {
-        updateBlitzPath();
+        if (event.affectsConfiguration('blitz3d.editor.UseBracketsEverywhere')) {
+            vscode.window.showWarningMessage('Bracket snippets need to be updated. Reload window for changes to take effect', 'Reload')
+                .then((resp) => { if (resp) vscode.commands.executeCommand('workbench.action.reloadWindow'); });
+        }
+        if (event.affectsConfiguration('blitz3d.installation.BlitzPath')) {
+            updateBlitzPath();
+            vscode.window.showInformationMessage('BlitzPath updated.');
+        }
         blitzCtx = createLaunchContext();
     }));
     vscode.workspace.getConfiguration('files.encoding', { languageId: 'blitz3d' }).update('files.encoding', 'windows1250', vscode.ConfigurationTarget.Global, true);
@@ -1543,24 +1571,7 @@ class CompletionItemProvider implements vscode.CompletionItemProvider {
             let ci = new vscode.CompletionItem({ label: stub.name, detail: stub.declaration.substring(8).includes('(') ? '()' : '' }, isKw ? vscode.CompletionItemKind.Keyword : vscode.CompletionItemKind.Function);
             ci.documentation = new vscode.MarkdownString(stub.description.join('  \n'));
             if (useSnippets) {
-                const snip = new vscode.SnippetString(stub.name);
-                if ((usebrackets && !isKw) || stub.declaration.substring(9).includes('(')) snip.appendText('(');
-                else snip.appendText(' ');
-                const params: string[] = [];
-                const dec = stub.declaration.substring(10).replace('[', '').replace(/,\s*,/, ',').replace(']', '');
-                const op = dec.indexOf('(') == -1 ? dec.indexOf(' ') : dec.indexOf('(');
-                if (op > -1) {
-                    const cp = dec.indexOf(')') == -1 ? dec.length : dec.indexOf(')');
-                    const pars = dec.substring(op + 1, cp).split(',');
-                    for (const p of pars) params.push(removeType(p));
-                    for (let i = 0; i < params.length; i++) {
-                        if (i < stub.parameters.length && stub.parameters[i].includes('optional')) continue;
-                        if (i != 0) snip.appendText(', ');
-                        snip.appendPlaceholder(removeType(params[i]));
-                    }
-                }
-                if ((usebrackets && !isKw) || stub.declaration.substring(9).includes('(')) snip.appendText(')');
-                ci.insertText = snip;
+                ci.insertText = stub.snippet;
             } else {
                 if ((usebrackets && !isKw) || stub.declaration.substring(9).includes('(')) ci.insertText = new vscode.SnippetString(stub.name + '($0)');
                 else ci.insertText = stub.name + ' ';

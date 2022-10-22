@@ -1332,7 +1332,7 @@ class CompletionItemProvider implements vscode.CompletionItemProvider {
         // not in strings
         if (isInString(document.lineAt(position).text, position.character)) return;
 
-        let lastPos = position.translate(0, -1);
+        let lastPos = position.character == 0 ? position : position.translate(0, -1);
         while (lastPos.character > 0 && document.getText(new vscode.Range(lastPos, lastPos.translate(0, 1))).match(/\s|\w/)) {
             lastPos = lastPos.translate(0, -1);
         }

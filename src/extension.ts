@@ -234,17 +234,16 @@ function generateContext(uri: vscode.Uri, text: string, dir?: string | undefined
 
         // parse global variables
         else if (tline.match(/^global\s/)) {
-            const q = oline.trimStart().split('=')[0].trim();
-            const vars = q.substring(7, startOfComment(q)).trim().split(',');
-            for (const v of vars) {
+            const vars = oline.replace(/\(.*\)/g, '()').substring(7, startOfComment(oline)).split(',').map(v => v.split('=')[0].trim());
+            for (const v of vars) { 
                 if (v.length > 0) {
-                    const bv = new BlitzVariable(
+                    let bv = new BlitzVariable(
                         removeType(v),
                         uri,
-                        oline.substring(0, startOfComment(oline)).split('=')[0].trim(),
+                        'Global ' + v,
                         lineRange,
                         'global',
-                        extractType(q)
+                        extractType(v)
                     );
                     bv.description = oline.substring(startOfComment(oline) + 1).trim();
                     tokens.push(bv);
@@ -254,17 +253,16 @@ function generateContext(uri: vscode.Uri, text: string, dir?: string | undefined
 
         // parse locals (or at least try)
         else if (tline.match(/^local\s/)) {
-            const q = oline.trimStart().split('=')[0].trim();
-            const vars = q.substring(6, startOfComment(q)).trim().split(',');
-            for (const v of vars) {
+            const vars = oline.replace(/\(.*\)/g, '()').substring(6, startOfComment(oline)).split(',').map(v => v.split('=')[0].trim());
+            for (const v of vars) { 
                 if (v.length > 0) {
-                    const bv = new BlitzVariable(
-                        removeType(oline.trimStart().substring(6).split('=')[0]),
+                    let bv = new BlitzVariable(
+                        removeType(v),
                         uri,
-                        oline.split('=')[0].trim(),
+                        'Local ' + v,
                         lineRange,
                         'local',
-                        extractType(q)
+                        extractType(v)
                     );
                     bv.description = oline.substring(startOfComment(oline) + 1).trim();
                     if (cFunction) {
@@ -274,17 +272,16 @@ function generateContext(uri: vscode.Uri, text: string, dir?: string | undefined
             }
         }
         else if (tline.match(/^const\s/)) {
-            const q = oline.trimStart().split('=')[0].trim();
-            const vars = q.substring(6, startOfComment(q)).trim().split(',');
-            for (const v of vars) {
+            const vars = oline.replace(/\(.*\)/g, '()').substring(6, startOfComment(oline)).split(',').map(v => v.trim());
+            for (const v of vars) { 
                 if (v.length > 0) {
                     let bv = new BlitzVariable(
-                        removeType(oline.trimStart().substring(6).split('=')[0]),
+                        removeType(v.split('=')[0]),
                         uri,
-                        oline.substring(0, startOfComment(oline)).trim(),
+                        'Const ' + v.replace(/\s+/g, ' '),
                         lineRange,
                         'local',
-                        extractType(q)
+                        extractType(v.split('=')[0])
                     );
                     bv.description = oline.substring(startOfComment(oline) + 1).trim();
                     if (cFunction) {

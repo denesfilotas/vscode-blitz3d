@@ -969,6 +969,8 @@ export function activate(context: vscode.ExtensionContext) {
             vscode.window.showInformationMessage('BlitzPath updated.');
         }
         blitzCtx = createLaunchContext();
+        const userLibs = loadUserLibs();
+        blitzCtx = blitzCtx.filter(c => !userLibs.map(lc => lc.uri.path).includes(c.uri.path)).concat(userLibs);
     }));
     vscode.workspace.getConfiguration('files.encoding', { languageId: 'blitz3d' }).update('files.encoding', 'windows1250', vscode.ConfigurationTarget.Global, true);
 

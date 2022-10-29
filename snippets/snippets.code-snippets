@@ -1,9 +1,4 @@
 {
-    "Print": {
-        "prefix": "print",
-        "body": "print($0)",
-        "description": "Print to screen"
-    },
     "Main loop": {
         "prefix": "main",
         "body": [

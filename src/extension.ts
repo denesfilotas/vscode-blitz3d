@@ -235,7 +235,8 @@ function generateContext(uri: vscode.Uri, text: string, dir?: string | undefined
         // parse global variables
         else if (tline.match(/^global\s/)) {
             const vars = oline.replace(/\(.*\)/g, '()').substring(7, startOfComment(oline)).split(',').map(v => v.split('=')[0].trim());
-            for (const v of vars) { 
+            for (const v of vars) {
+                if (v.includes(' ') || v.includes('\t')) break;
                 if (v.length > 0) {
                     let bv = new BlitzVariable(
                         removeType(v),
@@ -254,7 +255,8 @@ function generateContext(uri: vscode.Uri, text: string, dir?: string | undefined
         // parse locals (or at least try)
         else if (tline.match(/^local\s/)) {
             const vars = oline.replace(/\(.*\)/g, '()').substring(6, startOfComment(oline)).split(',').map(v => v.split('=')[0].trim());
-            for (const v of vars) { 
+            for (const v of vars) {
+                if (v.includes(' ') || v.includes('\t')) break;
                 if (v.length > 0) {
                     let bv = new BlitzVariable(
                         removeType(v),
@@ -273,7 +275,7 @@ function generateContext(uri: vscode.Uri, text: string, dir?: string | undefined
         }
         else if (tline.match(/^const\s/)) {
             const vars = oline.replace(/\(.*\)/g, '()').substring(6, startOfComment(oline)).split(',').map(v => v.trim());
-            for (const v of vars) { 
+            for (const v of vars) {
                 if (v.length > 0) {
                     let bv = new BlitzVariable(
                         removeType(v.split('=')[0]),
@@ -332,7 +334,7 @@ function generateContext(uri: vscode.Uri, text: string, dir?: string | undefined
         // parse locals with implicit declaration
         if (tline.indexOf('=') >= 0 && tline.indexOf('=') < startOfComment(tline)) {
             const pline = tline.split('=')[0].trim();
-            if (!(pline.includes(' ') || pline.includes('\\') || pline.includes('(') || pline.includes('['))) {
+            if (!(pline.includes(' ') || pline.includes('\\') || pline.includes('(') || pline.includes('[') || pline.includes('\t'))) {
 
                 let dt = extractType(tline.split('=')[0].trim());
                 let l = false;

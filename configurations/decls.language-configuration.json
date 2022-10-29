@@ -1,0 +1,12 @@
+{
+    "autoClosingPairs": [
+        ["\"", "\""],
+        ["(", ")"]
+    ],
+    "surroundingPairs": [
+        ["\"", "\""]
+    ],
+    "colorizedBracketPairs": [
+        ["(", ")"]
+    ]
+}

@@ -1,0 +1,64 @@
+{
+    "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+    "name": "Blitz3D library declarations",
+    "scopeName": "source.decls",
+    "patterns": [
+        {
+            "match": "(?i)(.lib)\\s*(\\\"(.+)\\\")?",
+            "captures": {
+                "1": {
+                    "name": "keyword.control.decls"
+                },
+                "2": {
+                    "name": "string.quoted.double.decls"
+                },
+                "3": {
+                    "name": "entity.name.tag.decls"
+                }
+            }
+        },
+        {
+            "match": "(.+)(:)\\s*(\\\"(.*)\\\")\\s*",
+            "name": "entity.declaration.decls",
+            "captures": {
+                "1": {
+                    "patterns": [
+                        {
+                            "match": "(?i)^\\s*(\\w+)\\s*(\\.|#|\\$|%)?\\s*\\((.*)\\)\\s*$",
+                            "captures": {
+                                "1": {
+                                    "name": "entity.name.function.decls"
+                                },
+                                "2": {
+                                    "name": "storage.type.decls.decls"
+                                },
+                                "3": {
+                                    "patterns": [
+                                        {
+                                            "match": "\\w+\\s*(\\.|#|\\$|%)?",
+                                            "name": "variable.name.decls",
+                                            "captures": {
+                                                "1": {
+                                                    "name": "storage.type.decls"
+                                                }
+                                            }
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    ]
+                },
+                "2": {
+                    "name": "keyword.control.decls"
+                },
+                "3": {
+                    "name": "string.quoted.double"
+                },
+                "4": {
+                    "name": "entity.name.function"
+                }
+            }
+        }
+    ]
+}

@@ -52,7 +52,7 @@ class BlitzFunction extends BlitzToken {
     type: string = 'function';
     returnType: string = '(%)';
     locals: BlitzVariable[] = [];
-    endPosition: vscode.Position = new vscode.Position(0, 0);
+    endPosition: vscode.Position = this.declarationRange.end;
     stub: BlitzStub | undefined;
 }
 
@@ -124,6 +124,36 @@ function createLaunchContext(): BlitzContext {
     } catch {
         return [];
     }
+}
+
+function loadUserLibs() {
+    const r: BlitzContext = [];
+    const declsFiles = readdirSync(path.join(blitzpath, 'userlibs')).filter(file => file.endsWith('decls'));
+    for (const decls of declsFiles) {
+        const tokens: BlitzToken[] = [];
+        const fileName = path.join(blitzpath, 'userlibs', decls);
+        const uri = vscode.Uri.file(fileName);
+        const text = readFileSync(fileName).toString();
+        const lines = text.split(/\r\n|\r|\n/);
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i];
+            const decl = line.split(':')[0].trim();
+            if (decl.startsWith('.lib')) continue;
+            const name = decl.split('(')[0].trim();
+            if (name.length == 0) continue;
+            tokens.push(new BlitzFunction(
+                removeType(name),
+                uri,
+                'Function ' + decl,
+                new vscode.Range(i, 0, i, line.length)
+            ));
+        }
+        if (tokens.length > 0) r.push({
+            uri: uri,
+            tokens: tokens
+        });
+    }
+    return r;
 }
 
 function updateBlitzPath() {
@@ -882,15 +912,22 @@ export function activate(context: vscode.ExtensionContext) {
     }
     context.subscriptions.push(vscode.workspace.onDidSaveTextDocument(compile));
     context.subscriptions.push(vscode.workspace.onDidChangeTextDocument(e => {
-        updateTodos(e.document);
-        const generatedCtx = generateContext(e.document.uri, e.document.getText());
-        const generatedPaths = generatedCtx.map(gc => gc.uri.path);
-        blitzCtx = blitzCtx.filter(c => !generatedPaths.includes(c.uri.path)).concat(generatedCtx);
+        if (e.document.languageId == 'blitz3d') {
+            updateTodos(e.document);
+            const generatedCtx = generateContext(e.document.uri, e.document.getText());
+            const generatedPaths = generatedCtx.map(gc => gc.uri.path);
+            blitzCtx = blitzCtx.filter(c => !generatedPaths.includes(c.uri.path)).concat(generatedCtx);
+        } else if (e.document.languageId == 'blitz3d-decls') {
+            const userLibs = loadUserLibs();
+            blitzCtx = blitzCtx.filter(c => !userLibs.map(lc => lc.uri.path).includes(c.uri.path)).concat(userLibs);
+        }
     }));
     context.subscriptions.push(vscode.workspace.onDidOpenTextDocument(document => {
-        const generatedCtx = generateContext(document.uri, document.getText());
-        const generatedPaths = generatedCtx.map(gc => gc.uri.path);
-        blitzCtx = blitzCtx.filter(c => !generatedPaths.includes(c.uri.path)).concat(generatedCtx);
+        if (document.languageId == 'blitz3d') {
+            const generatedCtx = generateContext(document.uri, document.getText());
+            const generatedPaths = generatedCtx.map(gc => gc.uri.path);
+            blitzCtx = blitzCtx.filter(c => !generatedPaths.includes(c.uri.path)).concat(generatedCtx);
+        }
     }));
 
     //Commands
@@ -949,8 +986,12 @@ export function activate(context: vscode.ExtensionContext) {
     if (blitzCtx.length == 0 && vscode.window.activeTextEditor) {
         const document = vscode.window.activeTextEditor.document;
         const generatedCtx = generateContext(document.uri, document.getText());
-        blitzCtx = blitzCtx.filter(c => !generatedCtx.map(gc => gc.uri).includes(c.uri)).concat(generatedCtx);
+        blitzCtx = blitzCtx.filter(c => !generatedCtx.map(gc => gc.uri.path).includes(c.uri.path)).concat(generatedCtx);
     }
+    // add userlibs to context
+    const userLibs = loadUserLibs();
+    blitzCtx = blitzCtx.filter(c => !userLibs.map(lc => lc.uri.path).includes(c.uri.path)).concat(userLibs);
+
     console.log('Blitz3D extension activated.');
 }
 
@@ -1302,8 +1343,8 @@ class BlitzHoverProvider implements vscode.HoverProvider {
                     t.stub.parameters.forEach((p) => {
                         desc.appendMarkdown(p + '  \n');
                     });
-                    if (t.uri != document.uri) dl = 'Defined in ' + t.uri.path.substring(t.uri.path.lastIndexOf('/') + 1);
                 }
+                if (t.uri != document.uri) dl = 'Defined in ' + t.uri.path.substring(t.uri.path.lastIndexOf('/') + 1);
                 if (t instanceof BlitzVariable && t.description) desc.appendText(t.description);
                 if (!(t instanceof BlitzVariable)) break; // Variables can be dimmed
             }

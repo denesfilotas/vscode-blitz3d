@@ -25,14 +25,24 @@
                 "id": "blitz3d",
                 "aliases": [
                     "BlitzBasic",
-                    "blitz3d"
+                    "Blitz3D"
                 ],
                 "extensions": [
                     "bb",
                     "bb_bak1",
                     "bb_bak2"
                 ],
-                "configuration": "./language-configuration.json"
+                "configuration": "./configurations/blitz3d.language-configuration.json"
+            },
+            {
+                "id": "blitz3d-decls",
+                "aliases": [
+                    "Blitz3D library declarations"
+                ],
+                "extensions": [
+                    "decls"
+                ],
+                "configuration": "./configurations/decls.language-configuration.json"
             }
         ],
         "grammars": [
@@ -40,6 +50,11 @@
                 "language": "blitz3d",
                 "scopeName": "source.bb",
                 "path": "./syntaxes/blitz3d.tmLanguage.json"
+            },
+            {
+                "language": "blitz3d-decls",
+                "scopeName": "source.decls",
+                "path": "./syntaxes/decls.tmLanguage.json"
             }
         ],
         "snippets": [

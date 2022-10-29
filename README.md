@@ -6,13 +6,12 @@ The ability to run programs and detect errors is supported on Windows only. Cros
 
 ## Release Notes
 
+This update introduces major changes in the extension. Some unexpected bugs may occur.
+
 This update adds the following features:
 
-- Basic formatter functionality
-- Improved signature help
-- Parameter snippets
-- Examples are replaced with links in hovers
-- Other bug fixes and performance improvements
+- Support for user-defined libraried
+- Includes from `bbfile` launch config
 
 > To see all the changes, check the [changelog](CHANGELOG.md) or the [GitHub repository](https://github.com/denesfilotas/vscode-blitz3d).
 
@@ -63,6 +62,6 @@ See contributed settings in the `Feature Contributions` tab.
 ## Known Issues
 
 - Variables might not be recognized when no explicit declaration is present
-- Changedir command prevents the extension from importing files correctly
-- Custom commands and DLLs are not supported
+- Include files might not be recognized when filename is not explicitly specified or after using changedir
+- Functions defined in userlibs without a decorated name are not highlighted in decls files
 - Hangs and unexpected behaviour (without code loss) can be experienced rarely

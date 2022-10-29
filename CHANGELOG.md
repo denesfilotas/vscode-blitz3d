@@ -3,6 +3,14 @@
 All major and minor version changes are listed here. Patch version changes should only contain bugfixes.
  > To see all changes in code since the first published version, check out the [GitHub repository](https://github.com/denesfilotas/vscode-blitz3d).
 
+## 0.4.0
+
+- Stubs are no longer included with the extension
+- Introduced support for userlibs
+- Switched compilation to the main file instead of the open one
+- Improved detection of multiple variables in the same line
+- Diagnostics and performance improvements
+
 ## 0.3.0
 
 - Added basic formatter functionality

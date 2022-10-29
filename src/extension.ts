@@ -1403,8 +1403,7 @@ class DocumentSymbolProvider implements vscode.DocumentSymbolProvider {
                 const s = line.text.toLowerCase().trim();
                 const fn = s.match(/(?<=^function\b).+(?=\()/)?.toString();
                 if (fn) {
-                    const fnt = extractType(fn);
-                    if (fnt && fnt[0]) funcs.push(new vscode.DocumentSymbol(fnt[0], fnt[1] ? fnt[1] : '(%)', vscode.SymbolKind.Function, line.range, line.range));
+                    funcs.push(new vscode.DocumentSymbol(removeType(fn), extractType(fn), vscode.SymbolKind.Function, line.range, line.range));
                 }
                 if (s.match(/^end function/)) {
                     const lf = funcs.pop();

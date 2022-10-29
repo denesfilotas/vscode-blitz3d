@@ -352,7 +352,7 @@ function generateContext(uri: vscode.Uri, text: string, dir?: string | undefined
                 }
             }
         }
-        else if (tline.match(/^next\s/)) {
+        else if (tline.match(/^next\b/)) {
             const cit = cIterator.pop();
             if (cit) {
                 cit.endPosition = lineRange.end;

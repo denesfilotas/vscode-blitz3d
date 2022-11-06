@@ -529,7 +529,7 @@ function generateStubFromDoc(document: Buffer): BlitzStub {
             }
         } else if (str.startsWith('</table>') && state == StubGenState.example) {
             state = StubGenState.done;
-        } else if (str.match(/\b(br|table|td|tr|h1)\b/)) {
+        } else if (str.match(/\b(br|table|td|tr|h1|body)\b/)) {
             continue;
         } else {
             if (str.trim().length === 0) continue;

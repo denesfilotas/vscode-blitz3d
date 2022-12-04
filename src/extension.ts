@@ -1809,8 +1809,10 @@ class DocumentFormattingEditProvider implements vscode.DocumentFormattingEditPro
             }
             //indentate
             if (target > 0 && lineText.match(/^\s*(w?end|endif|until|forever|next|case|default|else(if)?)\b/)) target--;
+            if (target > 0 && lineText.match(/^\s*end select\b/)) target--;
             ret.push(vscode.TextEdit.replace(new vscode.Range(i, 0, i, lineText.length - lineText.trimStart().length), ind.repeat(target)));
             if (lineText.match(/^\s*(function|type|if|else(if)?|select|case|default|repeat|while|for)\b/)) target++;
+            if (lineText.match(/^\s*select\b/)) target++;
             if (lineText.trimStart().startsWith('if ') && lineText.indexOf('then') > 0 && startOfComment(lineText.split('then')[1].trim()) > 1) target--;
             // split on colons
             if (!lineText.startsWith('if ')) {

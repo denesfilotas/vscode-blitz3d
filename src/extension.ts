@@ -141,12 +141,14 @@ function loadUserLibs() {
             if (decl.startsWith('.lib')) continue;
             const name = decl.split('(')[0].trim();
             if (name.length == 0) continue;
-            tokens.push(new BlitzFunction(
+            const fun = new BlitzFunction(
                 removeType(name),
                 uri,
                 'Function ' + decl,
                 new vscode.Range(i, 0, i, line.length)
-            ));
+            );
+            fun.returnType = '';
+            tokens.push(fun);
         }
         if (tokens.length > 0) r.push({
             uri: uri,

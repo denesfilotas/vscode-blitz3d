@@ -19,8 +19,7 @@ export default class BlitzConfigurationProvider implements vscode.DebugConfigura
             return vscode.window.showErrorMessage('No file to debug.').then(_ => undefined);
         }
         if (!path.isAbsolute(config.bbfile)) {
-            //console.log('BB file is not absolute, finding ' + config.bbfile + ' in workspace');
-            config.bbfile = vscode.workspace.workspaceFolders?.[0].uri.fsPath + path.sep + config.bbfile;
+            config.bbfile = folder.uri.fsPath + path.sep + config.bbfile;
         }
         return config;
     }

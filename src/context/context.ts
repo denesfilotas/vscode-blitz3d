@@ -17,7 +17,6 @@ export function updateBlitzPath() {
     blitzCmd = blitzpath.length > 0 ? '"' + path.join(blitzpath, 'bin', 'blitzcc') + '"' : 'blitzcc';
     const env = process.env;
     if (blitzpath.length > 0) env['BLITZPATH'] = blitzpath;
-    console.log(blitzCmd);
     cp.exec(blitzCmd, env, (err, stdout, stderr) => {
         if (err) showErrorOnCompile(stdout, stderr);
     });

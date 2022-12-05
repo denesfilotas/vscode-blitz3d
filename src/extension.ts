@@ -24,10 +24,18 @@ export function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(diagnosticCollection);
     context.subscriptions.push(compilationErrors);
 
+    //Load paths
+    updateBlitzPath();
+    updateStubPath(context.asAbsolutePath('stubs.bb'));
+
+    // Load stubs to use immediately
+    initializeContext();
     if (vscode.window.activeTextEditor) {
+        updateContext(vscode.window.activeTextEditor.document);
         updateTodos(vscode.window.activeTextEditor.document);
         compile(vscode.window.activeTextEditor.document);
     }
+
     context.subscriptions.push(vscode.workspace.onDidSaveTextDocument(compile));
     context.subscriptions.push(vscode.workspace.onDidChangeTextDocument(e => {
         if (e.document.languageId == 'blitz3d') {
@@ -93,14 +101,6 @@ export function activate(context: vscode.ExtensionContext) {
         initializeContext();
     }));
     vscode.workspace.getConfiguration('files.encoding', { languageId: 'blitz3d' }).update('files.encoding', 'windows1250', vscode.ConfigurationTarget.Global, true);
-
-    // Load stubs to use immediately
-    updateBlitzPath();
-    updateStubPath(context.asAbsolutePath('stubs.bb'));
-    initializeContext();
-    if (blitzCtx.length == 0 && vscode.window.activeTextEditor) {
-        updateContext(vscode.window.activeTextEditor.document);
-    }
 
     console.log('Blitz3D extension activated.');
 }

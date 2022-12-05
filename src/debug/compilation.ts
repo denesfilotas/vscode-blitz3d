@@ -14,7 +14,8 @@ export default function compile(document: vscode.TextDocument) {
     if (compiletype == 'Open file' || compiletype == 'Both') {
         if (document.languageId != 'blitz3d') return;
         blitzcc(document.uri);
-    } else {
+    }
+    if (compiletype == 'Launch file' || compiletype == 'Both') {
         const folders = vscode.workspace.workspaceFolders;
         if (folders) {
             for (const folder of folders) {
@@ -23,7 +24,7 @@ export default function compile(document: vscode.TextDocument) {
                     const bbfile = config.get<any[]>("configurations")?.[0].bbfile;
                     const bbpath = path.isAbsolute(bbfile) ? bbfile : path.join(folder.uri.path.substring(1) ?? '.', bbfile);
                     const uri = vscode.Uri.file(bbpath);
-                    if (uri.path != document.uri.path) blitzcc(uri);
+                    if (compiletype == 'Launch file' || uri.path != document.uri.path) blitzcc(uri);
                 } catch (e) {
                     vscode.window.showErrorMessage('Error occured during compilation', 'Show error')
                         .then(resp => { if (resp) vscode.window.showErrorMessage('Error: ' + e); });

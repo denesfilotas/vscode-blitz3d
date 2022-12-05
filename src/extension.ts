@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 
-import { blitzCtx, initializeContext, updateBlitzPath, updateContext, updateUserLibs } from './context/context';
+import { initializeContext, updateBlitzPath, updateContext, updateUserLibs } from './context/context';
 import { compilationErrors, diagnosticCollection, initializeDiagnostics } from './context/diagnostics';
 import openExample from './context/examples';
 import { generateStubs, updateStubPath } from './context/stubs';

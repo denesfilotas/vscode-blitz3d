@@ -2,34 +2,35 @@ import * as vscode from 'vscode';
 import * as cp from 'child_process';
 import * as path from 'path';
 import { blitzCmd, blitzpath } from '../context/context';
-import { compilationErrors, diagnosticCollection } from '../context/diagnostics';
+import { compilationErrors } from '../context/diagnostics';
 
 export default function compile(document: vscode.TextDocument) {
 
     compilationErrors.clear();
-    if (document.languageId != 'blitz3d') return;
 
     const compiletype = vscode.workspace.getConfiguration('blitz3d.compilation').get<string>('AutoCompilation');
     if (compiletype == 'None') return;
 
-    let uri: vscode.Uri;
-    if (compiletype == 'Open file') {
-        uri = document.uri;
+    if (compiletype == 'Open file' || compiletype == 'Both') {
+        if (document.languageId != 'blitz3d') return;
+        blitzcc(document.uri);
     } else {
-        const folder = vscode.workspace.workspaceFolders?.[0];
-        const config = vscode.workspace.getConfiguration('launch', folder?.uri);
-        try {
-            const bbfile = config.get<any[]>("configurations")?.[0].bbfile;
-            const bbpath = path.isAbsolute(bbfile) ? bbfile : path.join(folder?.uri.path.substring(1) ?? '.', bbfile);
-            uri = vscode.Uri.file(bbpath);
-        } catch {
-            uri = document.uri;
+        const folders = vscode.workspace.workspaceFolders;
+        if (folders) {
+            for (const folder of folders) {
+                try {
+                    const config = vscode.workspace.getConfiguration('launch', folder.uri);
+                    const bbfile = config.get<any[]>("configurations")?.[0].bbfile;
+                    const bbpath = path.isAbsolute(bbfile) ? bbfile : path.join(folder.uri.path.substring(1) ?? '.', bbfile);
+                    const uri = vscode.Uri.file(bbpath);
+                    if (uri.path != document.uri.path) blitzcc(uri);
+                } catch (e) {
+                    vscode.window.showErrorMessage('Error occured during compilation', 'Show error')
+                        .then(resp => { if (resp) vscode.window.showErrorMessage('Error: ' + e); });
+                }
+            }
         }
     }
-
-    blitzcc(uri);
-
-    if (compiletype == 'Both' && uri.path != document.uri.path) blitzcc(document.uri);
 }
 
 function blitzcc(uri: vscode.Uri) {

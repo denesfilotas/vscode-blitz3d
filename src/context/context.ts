@@ -8,17 +8,17 @@ import { diagnosticCollection } from './diagnostics';
 import { showErrorOnCompile } from '../debug/compilation';
 
 export let blitzCtx: BlitzContext = [];
-export let blitzpath = 'C:\\Program Files (x86)\\Blitz3D';
+export let blitzpath: string = vscode.workspace.getConfiguration('blitz3d.installation').get('BlitzPath') ?? '';
+export let blitzCmd = blitzpath.length > 0 ? '"' + path.join(blitzpath, 'bin', 'blitzcc') + '"' : 'blitzcc';
 
 export function updateBlitzPath() {
     const config: string | undefined = vscode.workspace.getConfiguration('blitz3d.installation').get('BlitzPath');
-    blitzpath = config ? config : 'C:\\Program Files (x86)\\Blitz3D';
+    blitzpath = config ?? '';
+    blitzCmd = blitzpath.length > 0 ? '"' + path.join(blitzpath, 'bin', 'blitzcc') + '"' : 'blitzcc';
     const env = process.env;
-    if (blitzpath.length > 0) {
-        env['PATH'] += path.delimiter + path.join(blitzpath, 'bin');
-        env['BLITZPATH'] = blitzpath;
-    }
-    cp.exec('blitzcc', env, (err, stdout, stderr) => {
+    if (blitzpath.length > 0) env['BLITZPATH'] = blitzpath;
+    console.log(blitzCmd);
+    cp.exec(blitzCmd, env, (err, stdout, stderr) => {
         if (err) showErrorOnCompile(stdout, stderr);
     });
 }

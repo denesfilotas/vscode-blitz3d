@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import * as cp from 'child_process';
 import * as path from 'path';
-import { blitzpath } from '../context/context';
+import { blitzCmd, blitzpath } from '../context/context';
 import { compilationErrors, diagnosticCollection } from '../context/diagnostics';
 
 export default function compile(document: vscode.TextDocument) {
@@ -35,24 +35,22 @@ export default function compile(document: vscode.TextDocument) {
 function blitzcc(uri: vscode.Uri) {
 
     // run compiler with env got from config
+    const binpath = path.join(blitzpath, 'bin');
     const env = process.env;
-    if (blitzpath.length > 0) {
-        env['PATH'] += path.delimiter + path.join(blitzpath, 'bin');
-        env['BLITZPATH'] = blitzpath;
-    }
-    cp.exec(`blitzcc -c "${uri.path.substring(1)}"`, env, (err, sout, serr) => {
+    if (blitzpath.length > 0) env['BLITZPATH'] = blitzpath;
+    cp.exec(`${blitzCmd} -c "${uri.path.substring(1)}"`, env, (err, sout, serr) => {
         if (err) {
             if (serr.length > 0
                 || sout.trim() == "Can't find blitzpath environment variable"
                 || sout.trim() == "Unable to open linker.dll") {
-                let diagnostics = diagnosticCollection.get(uri)?.filter(d => d.code !== "blitzcc") ?? [];
+                let diagnostics = compilationErrors.get(uri)?.filter(d => d.code !== "blitzcc") ?? [];
                 diagnostics.push({
                     message: 'BlitzPath is configured incorrectly. Compilation is unavailable.',
                     range: new vscode.Range(0, 0, 0, 0),
                     severity: vscode.DiagnosticSeverity.Information,
                     code: "blitzcc"
                 });
-                diagnosticCollection.set(uri, diagnostics);
+                compilationErrors.set(uri, diagnostics);
             }
             const lines = sout.toLowerCase().split(/\r\n|\r|\n/);
             const diagnostics = [];

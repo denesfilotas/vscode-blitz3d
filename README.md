@@ -6,12 +6,7 @@ The ability to run programs and detect errors is supported on Windows only. Cros
 
 ## Release Notes
 
-This update introduces major changes in the extension. Some unexpected bugs may occur.
-
-This update adds the following features:
-
-- Support for user-defined libraried
-- Includes from `bbfile` launch config
+This update contains lots of bug fixes.
 
 > To see all the changes, check the [changelog](CHANGELOG.md) or the [GitHub repository](https://github.com/denesfilotas/vscode-blitz3d).
 

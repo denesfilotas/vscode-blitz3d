@@ -159,10 +159,12 @@ export default class CompletionItemProvider implements vscode.CompletionItemProv
                 else ci.insertText = stub.name + ' ';
             }
             if (stub.name == 'Dim') ci.insertText = new vscode.SnippetString('Dim ${1:array_name}(${0:maxindex0...})');
-            if (!isKw) ci.command = {
-                title: 'Trigger Parameter Hints',
-                command: 'editor.action.triggerParameterHints'
-            };
+            if (!isKw && stub.parameters.length > 0 && !stub.parameters[0].toLowerCase().includes('none')) {
+                ci.command = {
+                    title: 'Trigger Parameter Hints',
+                    command: 'editor.action.triggerParameterHints'
+                };
+            }
             r.push(ci);
         }
         return new vscode.CompletionList(r);

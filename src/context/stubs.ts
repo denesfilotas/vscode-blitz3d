@@ -155,7 +155,7 @@ function loadDefaultStubs(document: Buffer): BlitzStub[] {
             const useBrackets = vscode.workspace.getConfiguration('blitz3d.editor').get<boolean>('UseBracketsEverywhere');
             const isKw = isBlitzKeyword(name.split(' ')[0]);
             if ((useBrackets && !isKw) || declaration.substring(9).includes('(')) snip.appendText('(');
-            else snip.appendText(' ');
+            else if (paramLines.length > 0 && !paramLines[0].toLowerCase().includes('none')) snip.appendText(' ');
             const params: string[] = [];
             const dec = declaration.substring(10).replace('[', '').replace(/,\s*,/, ',').replace(']', '');
             const op = dec.indexOf('(') == -1 ? dec.indexOf(' ') : dec.indexOf('(');

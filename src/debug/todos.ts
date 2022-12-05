@@ -15,7 +15,7 @@ export default function updateTodos(document: vscode.TextDocument) {
         for (let i = 0; i < document.lineCount; i++) {
             const line = document.lineAt(i).text;
             if (line.toLowerCase().indexOf(';;todo ') !== -1) diagnostics.push({
-                message: 'TODO: ' + line.trim().substring(7),
+                message: 'TODO: ' + line.trim().substring(line.toLowerCase().indexOf(';;todo ') + 7),
                 range: new vscode.Range(i, line.toLowerCase().indexOf(';;todo '), i, line.length),
                 severity: todotype == 'Information' ? vscode.DiagnosticSeverity.Information : vscode.DiagnosticSeverity.Warning,
                 code: "TODO"

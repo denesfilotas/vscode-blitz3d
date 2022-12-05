@@ -337,10 +337,12 @@ export function generateContext(uri: vscode.Uri, text: string, dir?: string | un
 
 function loadUserLibs() {
     const r: BlitzContext = [];
-    const declsFiles = readdirSync(path.join(blitzpath, 'userlibs')).filter(file => file.endsWith('decls'));
+    const basePath = blitzpath || process.env.BLITZPATH;
+    if (!basePath) return [];
+    const declsFiles = readdirSync(path.join(basePath, 'userlibs')).filter(file => file.endsWith('decls'));
     for (const decls of declsFiles) {
         const tokens: BlitzToken[] = [];
-        const fileName = path.join(blitzpath, 'userlibs', decls);
+        const fileName = path.join(basePath, 'userlibs', decls);
         const uri = vscode.Uri.file(fileName);
         const text = readFileSync(fileName).toString();
         const lines = text.split(/\r\n|\r|\n/);

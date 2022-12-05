@@ -7,6 +7,7 @@ import { compilationErrors, diagnosticCollection } from '../context/diagnostics'
 export default function compile(document: vscode.TextDocument) {
 
     compilationErrors.clear();
+    if (document.languageId != 'blitz3d') return;
 
     const compiletype = vscode.workspace.getConfiguration('blitz3d.compilation').get<string>('AutoCompilation');
     if (compiletype == 'None') return;

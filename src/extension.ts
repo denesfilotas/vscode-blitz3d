@@ -37,9 +37,18 @@ export function activate(context: vscode.ExtensionContext) {
             updateUserLibs();
         }
     }));
+
     context.subscriptions.push(vscode.workspace.onDidOpenTextDocument(document => {
         if (document.languageId == 'blitz3d') {
+            initializeContext();
             updateContext(document);
+        }
+    }));
+
+    context.subscriptions.push(vscode.window.onDidChangeActiveTextEditor(editor => {
+        if (editor?.document.languageId == 'blitz3d') {
+            initializeContext();
+            updateContext(editor.document);
         }
     }));
 

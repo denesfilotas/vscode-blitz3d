@@ -38,9 +38,9 @@ export function createLaunchContext() {
 }
 
 function obtainWorkingDir(uri: vscode.Uri): string {
-    const wsfolder = vscode.workspace.workspaceFolders?.[0];
-    if (wsfolder) {
-        return wsfolder.uri.path.substring(1);
+    const wsfolders = vscode.workspace.workspaceFolders;
+    if (wsfolders && wsfolders.length == 1) {
+        return wsfolders[0].uri.path.substring(1);
     }
     return uri.path.substring(1, uri.path.lastIndexOf('/'));
 }

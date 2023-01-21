@@ -21,7 +21,7 @@ export default function compile(document: vscode.TextDocument) {
             for (const folder of folders) {
                 try {
                     const config = vscode.workspace.getConfiguration('launch', folder.uri);
-                    const bbfile = config.get<any[]>("configurations")?.[0].bbfile;
+                    const bbfile = config.get<any[]>("configurations")?.[0]?.bbfile ?? document.fileName;
                     const bbpath = path.isAbsolute(bbfile) ? bbfile : path.join(folder.uri.path.substring(1) ?? '.', bbfile);
                     const uri = vscode.Uri.file(bbpath);
                     if (compiletype == 'Launch file' || uri.path != document.uri.path) blitzcc(uri);

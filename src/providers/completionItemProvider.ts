@@ -27,8 +27,14 @@ export default class CompletionItemProvider implements vscode.CompletionItemProv
         if (isInString(document.lineAt(position).text, position.character)) return;
 
         let lastPos = position.character == 0 ? position : position.translate(0, -1);
-        while (lastPos.character > 0 && document.getText(new vscode.Range(lastPos, lastPos.translate(0, 1))).match(/\s|\w/)) {
-            lastPos = lastPos.translate(0, -1);
+        if (lastPos.character > 0 && document.getText(new vscode.Range(lastPos, lastPos.translate(0, 1))).match(/\s/)) {
+            while (lastPos.character > 0 && document.getText(new vscode.Range(lastPos, lastPos.translate(0, 1))).match(/\s/)) {
+                lastPos = lastPos.translate(0, -1);
+            }
+        } else if (lastPos.character > 0 && document.getText(new vscode.Range(lastPos, lastPos.translate(0, 1))).match(/\w/)) {
+            while (lastPos.character > 0 && document.getText(new vscode.Range(lastPos, lastPos.translate(0, 1))).match(/\w/)) {
+                lastPos = lastPos.translate(0, -1);
+            }
         }
         const lastChar = document.getText(new vscode.Range(lastPos, lastPos.translate(0, 1)));
         while (lastPos.character > 0 && !document.getText(new vscode.Range(lastPos, lastPos.translate(0, 1))).match(/\w/)) {

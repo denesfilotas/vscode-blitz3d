@@ -62,12 +62,13 @@ function blitzcc(uri: vscode.Uri) {
                     const msg = s[s.length - 1];
                     const file = l.split('"')[1];
                     const erruri = vscode.Uri.file(file);
-                    const lineno = parseInt(s[s.length - 3]) - 1;
-                    const charno = parseInt(s[s.length - 2]);
-                    const startPos = new vscode.Position(lineno, charno);
+                    const startLine = parseInt(s[s.length - 5]) - 1;
+                    const startChar = parseInt(s[s.length - 4]);
+                    const endLine = parseInt(s[s.length - 3]) - 1;
+                    const endChar = parseInt(s[s.length - 2]);
                     diagnostics.push({
                         message: msg,
-                        range: new vscode.Range(startPos, startPos),
+                        range: new vscode.Range(startLine, startChar, endLine, endChar),
                         severity: vscode.DiagnosticSeverity.Error,
                         code: "blitzcc"
                     });

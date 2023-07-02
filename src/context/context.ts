@@ -239,8 +239,14 @@ export function generateContext(uri: vscode.Uri, text: string, dir?: string | un
             const fstspc = tline.indexOf(' ', 8);
             if (fstspc > -1) {
                 const param = oline.trim().substring(7, fstspc);
-                cStub.parameters.push('`' + param + '`' + oline.trim().substring(fstspc));
+                cStub.parameters.push('`' + param + '` - ' + oline.trim().substring(fstspc));
             } else cStub.parameters.push(oline.trim().substring(7));
+        } else if (tline.match(/^;;author\s/)) {
+            cStub.author.push(oline.trim().substring(8));
+        } else if (tline.match(/^;;return\s/)) {
+            cStub.return = oline.trim().substring(8);
+        } else if (tline.match(/^;;since\s/)) {
+            cStub.since = oline.trim().substring(7);
         }
 
         // parse functions

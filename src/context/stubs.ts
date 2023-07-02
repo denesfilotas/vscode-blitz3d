@@ -124,6 +124,9 @@ function generateStubFromDoc(document: Buffer): BlitzStub {
         declaration: declaration ? declaration : '',
         parameters: parameters,
         description: description,
+        author: ['Blitz3D'],
+        return: '',
+        since: '',
         example: example
     };
 }
@@ -133,6 +136,9 @@ function loadDefaultStubs(document: Buffer): BlitzStub[] {
     const r: BlitzStub[] = [];
     let descLines: string[] = [];
     let paramLines: string[] = [];
+    let author: string[] = [];
+    let ret: string = '';
+    let since: string = '';
     let declaration: string = '';
     let name: string = '';
     let exampleLines: string[] = [];
@@ -144,6 +150,12 @@ function loadDefaultStubs(document: Buffer): BlitzStub[] {
             descLines.push(line.substring(3));
         } else if (line.startsWith(';;param')) {
             paramLines.push(line.substring(7));
+        } else if (line.startsWith(';;author')) {
+            author.push(line.substring(8));
+        } else if (line.startsWith(';;return')) {
+            ret = line.substring(8);
+        } else if (line.startsWith(';;since')) {
+            since = line.substring(7);
         } else if (line.startsWith('function')) {
             declaration = '(builtin)' + line.substring(8);
             name = declaration.substring(9);
@@ -175,6 +187,9 @@ function loadDefaultStubs(document: Buffer): BlitzStub[] {
                 declaration: declaration,
                 description: descLines,
                 parameters: paramLines,
+                author: author,
+                return: ret,
+                since: since,
                 example: exampleLines.join('  \n'),
                 snippet: snip
             });

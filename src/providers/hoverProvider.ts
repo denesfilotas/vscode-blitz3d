@@ -193,6 +193,18 @@ export default class BlitzHoverProvider implements vscode.HoverProvider {
                     t.stub.parameters.forEach((p) => {
                         desc.appendMarkdown(p + '  \n');
                     });
+                    if (t.stub.return.length > 0) {
+                        desc.appendMarkdown('\n#### Return\n');
+                        desc.appendMarkdown(t.stub.return + '  \n');
+                    }
+                    if (t.stub.author.length > 0) desc.appendMarkdown('\n\n#### Authors\n');
+                    t.stub.author.forEach((authorLine) => {
+                        desc.appendMarkdown(authorLine + '  \n');
+                    });
+                    if (t.stub.since.length > 0) {
+                        desc.appendMarkdown('\n#### Since\n');
+                        desc.appendMarkdown(t.stub.since + '  \n');
+                    }
                 }
                 if (t.uri != document.uri) dl = 'Defined in ' + t.uri.path.substring(t.uri.path.lastIndexOf('/') + 1);
                 if (t instanceof BlitzVariable && t.description) desc.appendText(t.description);

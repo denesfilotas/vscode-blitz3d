@@ -40,6 +40,33 @@
 				{
 					"captures": {
 						"1": {
+							"name": "keyword.other.documentation"
+						}
+					},
+					"name": "comment.block.documentation",
+					"match": "(;;author ).*$"
+				},
+				{
+					"captures": {
+						"1": {
+							"name": "keyword.other.documentation"
+						}
+					},
+					"name": "comment.block.documentation",
+					"match": "(;;return ).*$"
+				},
+				{
+					"captures": {
+						"1": {
+							"name": "keyword.other.documentation"
+						}
+					},
+					"name": "comment.block.documentation",
+					"match": "(;;since ).*$"
+				},
+				{
+					"captures": {
+						"1": {
 							"name": "punctuation.definition.comment.semi-colon.bb"
 						}
 					},

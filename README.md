@@ -38,6 +38,9 @@ The following keywords can be used in lines preceding function declarations:
 
 - `;; ` followed by the documentation of the function
 - `;;param ` followed by the name of a parameter and its description
+- `;;author ` followed by the author of the function
+- `;;return` followed by the return value of the function
+- `;;since` followed by the version when the function was created
 
 These keywords are interpreted as comments in standard blitz3d, but within vscode they are used to provide information on mouse hover or code completion.
 If there is no bbdoc for a function and the preceding line contains just a comment, that is parsed as description.

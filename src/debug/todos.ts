@@ -1,14 +1,14 @@
 import * as vscode from 'vscode';
-import { diagnosticCollection } from '../context/diagnostics';
+import { syntaxErrors } from '../context/diagnostics';
 
 export default function updateTodos(document: vscode.TextDocument) {
 
     if (document.languageId != 'blitz3d') {
-        diagnosticCollection.delete(document.uri);
+        syntaxErrors.delete(document.uri);
         return;
     }
 
-    let diagnostics = diagnosticCollection.get(document.uri)?.filter(d => d.code !== "TODO") ?? [];
+    let diagnostics = syntaxErrors.get(document.uri)?.filter(d => d.code !== "TODO") ?? [];
 
     const todotype = vscode.workspace.getConfiguration('blitz3d.editor').get<string>('UseTodos');
     if (todotype != 'Off') {
@@ -23,5 +23,5 @@ export default function updateTodos(document: vscode.TextDocument) {
         }
     }
 
-    diagnosticCollection.set(document.uri, diagnostics);
+    syntaxErrors.set(document.uri, diagnostics);
 }

@@ -80,3 +80,52 @@ export function isInString(line: string, position: number): boolean {
     }
     return false;
 }
+
+export function prettyName(name: string, tag: string) {
+    return name + ('#$%'.includes(tag) ? '' : '.') + tag;
+}
+
+export function isIllegalTypeConversion(source: string, dest: string): number {
+    switch (source) {
+        case '?':
+            switch (dest) {
+                case '?':
+                case '%':
+                case '#':
+                case '$': return 0;
+                default: return 2;
+            }
+        case '%':
+            switch (dest) {
+                case '?': return 1;
+                case '%':
+                case '#':
+                case '$': return 0;
+                default: return 2;
+            }
+        case '#':
+            switch (dest) {
+                case '?':
+                case '%': return 1;
+                case '#':
+                case '$': return 0;
+                default: return 2;
+            }
+        case '$':
+            switch (dest) {
+                case '?':
+                case '%':
+                case '#': return 1;
+                case '$': return 0;
+                default: return 2;
+            }
+        case 'null':
+            return '?%#$'.includes(dest) ? 2 : 0;
+        default:
+            return source == dest ? 0 : 2;
+    }
+}
+
+export function isTerm(c: string | undefined): boolean {
+    return !c || c == ':' || c == '\n';
+}

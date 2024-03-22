@@ -10,9 +10,9 @@
         "type": "git",
         "url": "https://github.com/denesfilotas/vscode-blitz3d.git"
     },
-    "version": "0.4.1",
+    "version": "0.9.0",
     "engines": {
-        "vscode": "^1.65.0"
+        "vscode": "^1.75.0"
     },
     "categories": [
         "Programming Languages",
@@ -176,7 +176,7 @@
                 "properties": {
                     "blitz3d.outline.ClassicOutlineSymbols": {
                         "type": "boolean",
-                        "description": "Use Blitz3D-style categorized symbols in outline view. Ranges of symbols won't work."
+                        "description": "Use Blitz3D-style categorized symbols in outline view."
                     },
                     "blitz3d.outline.ParametersInOutline": {
                         "type": "boolean",
@@ -236,13 +236,35 @@
                     }
                 }
             }
-        ]
+        ],
+        "semanticTokenScopes": [
+            {
+                "language": "blitz3d",
+                "scopes": {
+                    "string.link": [
+                        "markup.underline.link"
+                    ]
+                }
+            }
+        ],
+        "configurationDefaults": {
+            "editor.semanticTokenColorCustomizations": {
+                "enabled": true,
+                "rules": {
+                    "*.deprecated:blitz3d": {
+                        "fontStyle": "strikethrough"
+                    }
+                }
+            },
+            "[blitz3d]": {
+                "files.encoding": "windows1250"
+            },
+            "[blitz3d-decls]": {
+                "files.encoding": "windows1250"
+            }
+        }
     },
     "main": "./out/extension.js",
-    "activationEvents": [
-        "onLanguage:blitz3d",
-        "onCommand:extension.blitz3d.generatestubs"
-    ],
     "scripts": {
         "vscode:prepublish": "npm run compile",
         "compile": "tsc -p ./",
@@ -251,11 +273,11 @@
     },
     "devDependencies": {
         "@types/node": "^12.12.0",
-        "@types/vscode": "^1.34.0",
-        "@typescript-eslint/eslint-plugin": "^4.16.0",
-        "@typescript-eslint/parser": "^4.16.0",
-        "eslint": "^7.21.0",
-        "typescript": "^4.5.5"
+        "@types/vscode": "^1.75.0",
+        "@typescript-eslint/eslint-plugin": "^6.5.0",
+        "@typescript-eslint/parser": "^6.5.0",
+        "eslint": "^8.48.0",
+        "typescript": "^5.2.2"
     },
     "dependencies": {
         "@vscode/debugadapter": "^1.56.0",

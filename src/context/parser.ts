@@ -591,7 +591,8 @@ export class BlitzParser implements Parser {
             dimension: expressions.length,
             range: range,
             declarationRange: range,
-            uri: this.uri
+            uri: this.uri,
+            constant: false
         };
         this.arrayDecls.set(ident.ident, d);
         return d;

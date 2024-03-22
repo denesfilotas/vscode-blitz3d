@@ -38,7 +38,7 @@ export function getType(exp: string, location: vscode.Location): Type | undefine
     }
     if (parents.length > 0) {
         let curr: Type | undefined;
-        for (const t of parsed.consts.concat(parsed.globals, analyzed.locals, parsed.funcs.find(fun => fun.uri.path == location.uri.path && fun.range.contains(location.range))?.locals ?? [])) {
+        for (const t of parsed.consts.concat(parsed.globals, analyzed.locals, parsed.funcs.find(fun => fun.uri.path == location.uri.path && fun.range.contains(location.range))?.locals ?? [], [...parsed.arrayDecls.values()])) {
             if (t.ident == parents[0].toLowerCase()) {
                 const type = t.tag;
                 curr = parsed.structs.find(struct => struct.ident == type);

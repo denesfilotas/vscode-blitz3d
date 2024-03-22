@@ -37,7 +37,7 @@ export default class CompletionItemProvider implements vscode.CompletionItemProv
         // Fields of type
         if (context.triggerCharacter == '\\' || lastChar == '\\') {
             if (!wr) return;
-            const exp = document.lineAt(position).text.substring(0, wr.end.character);
+            const exp = document.lineAt(position).text.substring(0, wr.end.character + 1);
             const type = getType(exp, new vscode.Location(document.uri, position));
             if (!type) return;
             for (const field of type.fields) {

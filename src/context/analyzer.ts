@@ -442,7 +442,7 @@ export class BlitzAnalyzer implements Analyzer {
             ident = this.parseIdent();
             tag = this.parseTypeTag();
         }
-        let variable: bb.Variable | undefined = context.find(v => v.ident == ident?.ident) ?? this.consts.find(c => c.ident == ident?.ident) ?? this.globals.find(v => v.ident == ident?.ident);
+        let variable: bb.Variable | undefined = context.find(v => v.ident == ident?.ident) ?? this.consts.find(c => c.ident == ident?.ident) ?? this.globals.find(v => v.ident == ident?.ident) ?? this.arrayDecls.get(ident?.ident ?? '');
         if (!variable && !allowImplicit) {
             this.diagnostics.get(this.uri)?.push({
                 message: 'Implicit variable declaration',
@@ -582,7 +582,8 @@ export class BlitzAnalyzer implements Analyzer {
             dimension: expressions.length,
             range: range,
             declarationRange: range,
-            uri: this.uri
+            uri: this.uri,
+            constant: false
         };
         this.arrayDecls.set(ident.ident, d);
         return d;

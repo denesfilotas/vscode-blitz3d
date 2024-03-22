@@ -38,9 +38,8 @@ export type Statement = any;
 
 export type Data = any;
 
-export type DimmedArray = Token & {
-    dimension: number,
-    tag: string;
+export type DimmedArray = Variable & {
+    dimension: number
 };
 
 export type ExpressionKind = '?' | '%' | '#' | '$' | '.';

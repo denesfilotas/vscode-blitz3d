@@ -65,12 +65,14 @@ export function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(
         vscode.commands.registerCommand('extension.blitz3d.debug', () => {
             let term = vscode.window.createTerminal("blitzcc");
+            term.show();
             term.sendText('blitzcc -d "' + vscode.window.activeTextEditor?.document.fileName + '"');
         })
     );
     context.subscriptions.push(
         vscode.commands.registerCommand('extension.blitz3d.run', () => {
             let term = vscode.window.createTerminal('blitzcc');
+            term.show();
             term.sendText('blitzcc "' + vscode.window.activeTextEditor?.document.fileName + '"');
         })
     );

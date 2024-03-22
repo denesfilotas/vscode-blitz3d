@@ -27,7 +27,7 @@ export function getType(exp: string, location: vscode.Location): Type | undefine
                 fend = i;
                 continue;
             }
-            if (!tline[i].match(/\w/)) {
+            if (!tline[i].match(/\w/) && tline[i] != '.') {
                 parents.unshift(removeType(tline.substring(i + 1, fend)));
                 break;
             }

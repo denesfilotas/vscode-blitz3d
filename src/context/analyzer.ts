@@ -153,7 +153,7 @@ export class BlitzAnalyzer implements Analyzer {
                             const variable = this.parseVar(true, context, ident, tag, pos);
                             const oldVar = this.arrayDecls.get(variable.ident) ?? context.concat(this.globals, this.consts).find(local => local.ident == variable.ident);
                             const vartag = variable.tag || oldVar?.tag || '%';
-                            if (!oldVar && variable.kind != 'field') context.push(variable);
+                            if (!oldVar && variable.kind != 'field' && variable.kind != 'array') context.push(variable);
                             this.toker.next();
                             const expression = this.parseExpr(context);
                             const exprtag = expression?.kind.replace('.', expression.type ?? '') || '%';

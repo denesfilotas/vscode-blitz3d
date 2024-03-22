@@ -117,7 +117,13 @@ export class BlitzAnalyzer implements Analyzer {
                 case 'ident':
                     {
                         const ident = this.parseIdent();
+                        const trange = this.toker.range();
                         const tag = this.parseTypeTag();
+                        if (tag && !'%#$'.includes(tag) && !this.structs.find(type => type.ident == tag)) this.diagnostics.get(this.uri)?.push({
+                            message: `Unknown type '${tag}'`,
+                            range: new vscode.Range(trange.end, this.toker.range().start),
+                            severity: vscode.DiagnosticSeverity.Error
+                        });
                         if (!this.arrayDecls.has(ident.ident) && this.toker.curr() != '=' && this.toker.curr() != '\\' && this.toker.curr() != '[') {
                             if (!isBuiltinBlitzFunction(ident.ident) && !this.funcs.concat(userLibs).find(fun => fun.ident == ident.ident)) this.diagnostics.get(this.uri)?.push({
                                 message: `Unknown function '${ident.name}'`,
@@ -145,15 +151,15 @@ export class BlitzAnalyzer implements Analyzer {
                             }
                         } else {
                             const variable = this.parseVar(true, context, ident, tag, pos);
-                            if (!this.arrayDecls.has(ident.ident) && !context.concat(this.globals, this.consts).find(local => local.ident == variable.ident)) {
-                                context.push(variable);
-                            }
+                            const oldVar = this.arrayDecls.get(variable.ident) ?? context.concat(this.globals, this.consts).find(local => local.ident == variable.ident);
+                            const vartag = variable.tag || oldVar?.tag || '%';
+                            if (!oldVar && variable.kind != 'field') context.push(variable);
                             this.toker.next();
                             const expression = this.parseExpr(context);
                             const exprtag = expression?.kind.replace('.', expression.type ?? '') || '%';
-                            const illegal = isIllegalTypeConversion(exprtag, tag);
-                            if (tag && illegal) this.diagnostics.get(this.uri)?.push({
-                                message: `Expression of type '${exprtag}' ${illegal == 1 ? 'should not' : 'cannot'} be assigned to variable of type '${tag}'`,
+                            const illegal = isIllegalTypeConversion(exprtag, vartag);
+                            if (illegal) this.diagnostics.get(this.uri)?.push({
+                                message: `Expression of type '${exprtag}' ${illegal == 1 ? 'should not' : 'cannot'} be assigned to variable of type '${vartag}'`,
                                 range: expression?.range ?? pos,
                                 severity: illegal == 1 ? vscode.DiagnosticSeverity.Warning : vscode.DiagnosticSeverity.Error
                             });

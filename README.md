@@ -1,6 +1,7 @@
 # Language support for Blitz3D
 
 This extension enables language support for the BlitzBasic language and extends the usage of the Blitz3D program and its `blitzcc` compiler.
+Standalone parsing and type checking is implemented based on [the original Blitz3D source code](https://github.com/blitz-research/blitz3d) which is released under the zlib/libpng license by Blitz Research Ltd.
 
 > Note: This is a pre-release version. You might experience more bugs than usual.
 
@@ -77,4 +78,4 @@ See contributed settings in the `Feature Contributions` tab.
   - Functions without a decorated name (alias) are not syntax highlighted
   - BBDoc is not available yet for userlib-defined functions
 - Information provided on hover might be incorrect if there are more than one objects with the same name (like a function and a type)
-- Type checking
+- Type checking is limited as of now

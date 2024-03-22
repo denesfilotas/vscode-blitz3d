@@ -589,9 +589,10 @@ export default class BlitzSemanticTokensProvider implements vscode.DocumentSeman
                     range: toker.range(),
                     tokenModifiers: parsed.consts.find(c => c.ident == toker.text()) ? ['readonly'] : []
                 };
+                const ident = toker.text().toLowerCase();
                 toker.next();
                 this.parseTypeTag(toker);
-                if (toker.curr() == '(') {
+                if (toker.curr() == '(' && !parsed.arrayDecls.has(ident)) {
                     token.tokenType = 'function';
                     if (parsed.funcs.find(fun => fun.ident == toker.text().toLowerCase())?.deprecated !== undefined) token.tokenModifiers.push('deprecated');
                     toker.next();

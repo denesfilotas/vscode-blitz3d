@@ -1,9 +1,8 @@
-import * as vscode from 'vscode';
-import * as cp from 'child_process';
-import * as path from 'path';
-import * as treekill from 'tree-kill';
 import { DebugSession, ExitedEvent, OutputEvent, TerminatedEvent } from '@vscode/debugadapter';
 import { DebugProtocol } from '@vscode/debugprotocol';
+import * as cp from 'child_process';
+import * as treekill from 'tree-kill';
+import * as vscode from 'vscode';
 import { blitzCmd, blitzpath } from '../context/context';
 
 export default class DebugAdapterDescriptorFactory implements vscode.DebugAdapterDescriptorFactory {

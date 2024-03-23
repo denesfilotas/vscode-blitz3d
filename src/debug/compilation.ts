@@ -1,6 +1,6 @@
-import * as vscode from 'vscode';
 import * as cp from 'child_process';
 import * as path from 'path';
+import * as vscode from 'vscode';
 import { blitzCmd, blitzpath } from '../context/context';
 import { compilationErrors } from '../context/diagnostics';
 
@@ -22,7 +22,7 @@ export default function compile(document: vscode.TextDocument) {
                 try {
                     const config = vscode.workspace.getConfiguration('launch', folder.uri);
                     const bbfile = config.get<any[]>("configurations")?.[0]?.bbfile ?? document.fileName;
-                    const bbpath = path.isAbsolute(bbfile) ? bbfile : path.join(folder.uri.path.substring(1) ?? '.', bbfile);
+                    const bbpath = path.isAbsolute(bbfile) ? bbfile : path.join(folder.uri.path.substring(process.platform === 'win32' ? 1 : 0) ?? '.', bbfile);
                     const uri = vscode.Uri.file(bbpath);
                     if (compiletype == 'Launch file' || uri.path != document.uri.path) blitzcc(uri);
                 } catch (e) {
@@ -40,7 +40,7 @@ function blitzcc(uri: vscode.Uri) {
     const binpath = path.join(blitzpath, 'bin');
     const env = process.env;
     if (blitzpath.length > 0) env['BLITZPATH'] = blitzpath;
-    cp.exec(`${blitzCmd} -c "${uri.path.substring(1)}"`, env, (err, sout, serr) => {
+    cp.exec(`${blitzCmd} -c "${uri.path.substring(process.platform === 'win32' ? 1 : 0)}"`, env, (err, sout, serr) => {
         if (err) {
             if (serr.length > 0
                 || sout.trim() == "Can't find blitzpath environment variable"

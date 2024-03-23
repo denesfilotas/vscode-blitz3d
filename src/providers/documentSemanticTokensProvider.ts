@@ -1,18 +1,18 @@
 import * as vscode from 'vscode';
-import { blitzCtx } from '../context/context';
-import { isInString, startOfComment } from '../util/functions';
-import { BlitzToken, BlitzIterator, BlitzDimmedArray, BlitzFunction, BlitzType } from '../util/types';
+import { parsed } from '../context/context';
+import { isTerm } from '../util/functions';
+import { BlitzToker } from '../util/toker';
 
 const tokenTypes = new Map<string, number>();
 const tokenModifiers = new Map<string, number>();
 
 interface IParsedToken {
-    line: number;
-    startCharacter: number;
-    length: number;
+    range: vscode.Range;
     tokenType: string;
     tokenModifiers: string[];
 }
+
+let tokens: IParsedToken[] = [];
 
 export const legend = (function () {
     const tokenTypesLegend = [
@@ -21,7 +21,7 @@ export const legend = (function () {
     tokenTypesLegend.forEach((tokenType, index) => tokenTypes.set(tokenType, index));
 
     const tokenModifiersLegend = [
-        'declaration', 'readonly', 'modification'
+        'declaration', 'readonly', 'modification', 'deprecated', 'link'
     ];
     tokenModifiersLegend.forEach((tokenModifier, index) => tokenModifiers.set(tokenModifier, index));
 
@@ -29,105 +29,582 @@ export const legend = (function () {
 })();
 
 export default class BlitzSemanticTokensProvider implements vscode.DocumentSemanticTokensProvider {
+
     async provideDocumentSemanticTokens(document: vscode.TextDocument, token: vscode.CancellationToken): Promise<vscode.SemanticTokens> {
-        const allTokens = BlitzSemanticTokensProvider._parseText(document.uri, document.getText());
-        const builder = new vscode.SemanticTokensBuilder();
+        const allTokens = BlitzSemanticTokensProvider._parseText(document.getText());
+        const builder = new vscode.SemanticTokensBuilder(legend);
         allTokens.forEach((token) => {
-            builder.push(token.line, token.startCharacter, token.length, this._encodeTokenType(token.tokenType), this._encodeTokenModifiers(token.tokenModifiers));
+            builder.push(token.range, token.tokenType, token.tokenModifiers);
         });
         return builder.build();
     }
 
-    private _encodeTokenType(tokenType: string): number {
-        if (tokenTypes.has(tokenType)) {
-            return tokenTypes.get(tokenType)!;
-        } else if (tokenType === 'notInLegend') {
-            return tokenTypes.size + 2;
-        }
-        return 0;
+    static _parseText(text: string): IParsedToken[] {
+        const toker = new BlitzToker(text);
+        tokens = [];
+        this.parseStmtSeq(toker, 'prog');
+        return tokens;
     }
 
-    private _encodeTokenModifiers(strTokenModifiers: string[]): number {
-        let result = 0;
-        for (let i = 0; i < strTokenModifiers.length; i++) {
-            const tokenModifier = strTokenModifiers[i];
-            if (tokenModifiers.has(tokenModifier)) {
-                result = result | (1 << tokenModifiers.get(tokenModifier)!);
-            } else if (tokenModifier === 'notInLegend') {
-                result = result | (1 << tokenModifiers.size + 2);
-            }
-        }
-        return result;
-    }
-
-    static _parseText(uri: vscode.Uri, text: string): IParsedToken[] {
-        const r: IParsedToken[] = [];
-        const lines = text.split(/\r\n|\r|\n/);
-        const tokens: BlitzToken[] = blitzCtx.flatMap(c => c.tokens);
-        for (let i = 0; i < lines.length; i++) {
-            const oline = lines[i].toLowerCase();
-            const tline = oline.trim();
-            const scpos = startOfComment(tline);
-            const oscpos = startOfComment(oline);
-
-            for (const t of tokens) {
-                /*
-                    I will refactor this later...				
-                */
-                if (t instanceof BlitzIterator && (i < t.range.start.line || i > t.endPosition.line)) continue;
-                for (let st = oline.indexOf(t.lcname); st != -1 && (scpos === -1 || st < oscpos); st = oline.indexOf(t.lcname, st + 1)) {
-                    // not in strings
-                    if (isInString(oline, st)) continue;
-                    if (t.matchBefore && !oline.substring(0, st).match(t.matchBefore)) continue;
-                    if (t.matchAfter && !oline.substring(st + t.lcname.length).match(t.matchAfter)) continue;
-                    if (st >= 0 && !oline[st - 1]?.match(/\w/) && !oline[st + t.lcname.length]?.match(/\w/)) {
-                        r.push({
-                            line: i,
-                            startCharacter: st,
-                            length: t.lcname.length,
-                            tokenType: t instanceof BlitzDimmedArray ? 'variable' : t.type,
+    static parseStmtSeq(toker: BlitzToker, scope: 'prog' | 'block' | 'fun' | 'line') {
+        for (; ;) {
+            while (toker.curr() == ':' || (scope != 'line' && toker.curr() == '\n')) toker.next();
+            switch (toker.curr()) {
+                case 'include':
+                    toker.next();
+                    tokens.push({
+                        tokenType: 'string',
+                        range: toker.range(),
+                        tokenModifiers: ['link']
+                    });
+                    toker.next();
+                    break;
+                case 'ident':
+                    {
+                        const token: IParsedToken = {
+                            tokenType: 'variable',
+                            range: toker.range(),
+                            tokenModifiers: []
+                        };
+                        const ident = toker.text().toLowerCase();
+                        toker.next();
+                        this.parseTypeTag(toker);
+                        if (toker.curr() != '=' && toker.curr() != '\\' && toker.curr() != '[') {
+                            token.tokenType = 'function';
+                            if (parsed.funcs.find(fun => fun.ident == ident)?.deprecated !== undefined) token.tokenModifiers = ['deprecated'];
+                            tokens.push(token);
+                            if (toker.curr() == '(') {
+                                let nest = 1, k;
+                                for (k = 1; ; ++k) {
+                                    const c = toker.lookAhead(k);
+                                    if (isTerm(c)) {
+                                        break;
+                                    } else if (c == '(') ++nest;
+                                    else if (c == ')' && --nest == 0) break;
+                                }
+                                if (isTerm(toker.lookAhead(++k))) {
+                                    toker.next();
+                                    this.parseExprSeq(toker);
+                                    toker.next();
+                                } else {
+                                    this.parseExprSeq(toker);
+                                }
+                            } else {
+                                this.parseExprSeq(toker);
+                            }
+                        } else {
+                            tokens.push(token);
+                            this.parseVar(toker, true, true);
+                            toker.next();
+                            this.parseExpr(toker);
+                        }
+                    }
+                    break;
+                case 'if':
+                    {
+                        toker.next();
+                        this.parseIf(toker);
+                        if (toker.curr() == 'endif') toker.next();
+                    }
+                    break;
+                case 'while':
+                    {
+                        toker.next();
+                        this.parseExpr(toker);
+                        this.parseStmtSeq(toker, 'block');
+                        if (toker.curr() == 'wend') toker.next();
+                    }
+                    break;
+                case 'repeat':
+                    {
+                        toker.next();
+                        this.parseStmtSeq(toker, 'block');
+                        const curr = toker.curr();
+                        toker.next();
+                        if (curr == 'until') this.parseExpr(toker);
+                    }
+                    break;
+                case 'select':
+                    {
+                        toker.next();
+                        this.parseExpr(toker);
+                        for (; ;) {
+                            while (isTerm(toker.curr())) toker.next();
+                            if (toker.curr() == 'case') {
+                                toker.next();
+                                this.parseExprSeq(toker);
+                                this.parseStmtSeq(toker, 'block');
+                                continue;
+                            } else if (toker.curr() == 'default') {
+                                toker.next();
+                                this.parseStmtSeq(toker, 'block');
+                                break;
+                            } else if (toker.curr() == 'endselect') {
+                                break;
+                            }
+                            break;
+                        }
+                        toker.next();
+                    }
+                    break;
+                case 'for':
+                    {
+                        toker.next();
+                        this.parseVar(toker);
+                        if (toker.next() == 'each') {
+                            toker.next();
+                            tokens.push({
+                                tokenType: 'type',
+                                range: toker.range(),
+                                tokenModifiers: []
+                            });
+                            toker.next();
+                            this.parseStmtSeq(toker, 'block');
+                            toker.next();
+                        } else {
+                            this.parseExpr(toker);
+                            toker.next();
+                            this.parseExpr(toker);
+                            if (toker.curr() == 'step') {
+                                toker.next();
+                                this.parseExpr(toker);
+                            }
+                            this.parseStmtSeq(toker, 'block');
+                            toker.next();
+                        }
+                    }
+                    break;
+                case 'exit':
+                    toker.next();
+                    break;
+                case 'goto':
+                case 'gosub':
+                    toker.next();
+                    tokens.push({
+                        tokenType: 'string',
+                        range: toker.range(),
+                        tokenModifiers: []
+                    });
+                    toker.next();
+                    break;
+                case 'return':
+                    toker.next();
+                    this.parseExpr(toker);
+                    break;
+                case 'delete':
+                    if (toker.next() == 'each') {
+                        toker.next();
+                        tokens.push({
+                            tokenType: 'type',
+                            range: toker.range(),
                             tokenModifiers: []
                         });
+                        toker.next();
+                    } else {
+                        this.parseExpr(toker);
                     }
-                }
-                if (t instanceof BlitzFunction && t.uri.path == uri.path && i >= t.declarationRange.start.line && i < t.endPosition.line) t.locals.forEach((loc) => {
-                    for (let st = oline.indexOf(loc.lcname); st != -1 && (scpos === -1 || st < oscpos); st = oline.indexOf(loc.lcname, st + 1)) {
-                        // not in strings
-                        if (isInString(oline, st)) continue;
-                        if (loc.matchBefore && !oline.substring(0, st).match(loc.matchBefore)) continue;
-                        if (loc.matchAfter && !oline.substring(st + loc.lcname.length).match(loc.matchAfter)) continue;
-                        if (loc instanceof BlitzIterator && (i < loc.range.start.line || i > loc.endPosition.line)) continue;
-                        if (st >= 0 && !oline[st - 1]?.match(/\w/) && !oline[st + loc.lcname.length]?.match(/\w/)) {
-                            r.push({
-                                line: i,
-                                startCharacter: st,
-                                length: loc.lcname.length,
-                                tokenType: loc.type,
-                                tokenModifiers: []
-                            });
-                        }
-                    }
-                });
-                if (t instanceof BlitzType) t.fields.forEach((f) => {
-                    for (let st = oline.indexOf(f.lcname); st != -1 && st < startOfComment(oline); st = oline.indexOf(f.lcname, st + 1)) {
-                        // not in strings
-                        if (isInString(oline, st)) continue;
-                        if (f.matchBefore && !oline.substring(0, st).match(f.matchBefore)) continue;
-                        if (f.matchAfter && !oline.substring(st + f.lcname.length).match(f.matchAfter)) continue;
-                        if (st >= 0 && !oline[st - 1]?.match(/\w/) && !oline[st + f.lcname.length]?.match(/\w/)) {
-                            r.push({
-                                line: i,
-                                startCharacter: st,
-                                length: f.lcname.length,
-                                tokenType: 'property',
-                                tokenModifiers: []
-                            });
-                        }
-                    }
-                });
+                    break;
+                case 'insert':
+                    toker.next();
+                    this.parseExpr(toker);
+                    toker.next();
+                    this.parseExpr(toker);
+                    break;
+                case 'read':
+                    do {
+                        toker.next();
+                        this.parseVar(toker);
+                    } while (toker.curr() == ',');
+                    break;
+                case 'restore':
+                    toker.next();
+                    tokens.push({
+                        tokenType: 'string',
+                        range: toker.range(),
+                        tokenModifiers: []
+                    });
+                    toker.next();
+                    break;
+                case 'data':
+                    do {
+                        toker.next();
+                        this.parseExpr(toker);
+                    } while (toker.curr() == ',');
+                    break;
+                case 'type':
+                    this.parseStructDecl(toker);
+                    break;
+                case 'const':
+                    do {
+                        toker.next();
+                        this.parseVarDecl(toker, 'global', true);
+                    } while (toker.curr() == ',');
+                    break;
+                case 'function':
+                    this.parseFuncDecl(toker);
+                    break;
+                case 'dim':
+                    do {
+                        toker.next();
+                        this.parseArrayDecl(toker);
+                    } while (toker.curr() == ',');
+                    break;
+                case 'local':
+                    do {
+                        toker.next();
+                        this.parseVarDecl(toker, 'local', false);
+                    } while (toker.curr() == ',');
+                    break;
+                case 'global':
+                    do {
+                        toker.next();
+                        this.parseVarDecl(toker, 'global', false);
+                    } while (toker.curr() == ',');
+                    break;
+                case '.':
+                    toker.next();
+                    tokens.push({
+                        tokenType: 'string',
+                        range: toker.range(),
+                        tokenModifiers: []
+                    });
+                    toker.next();
+                    break;
+                case 'eof':
+                    return;
+                default:
+                    if (scope != 'prog') return;
+                    toker.next();
+                    break;
             }
         }
-        return r;
     }
 
+    static parseTypeTag(toker: BlitzToker): string {
+        switch (toker.curr()) {
+            case '%':
+                toker.next();
+                return '%';
+            case '#':
+                toker.next();
+                return '#';
+            case '$':
+                toker.next();
+                return '$';
+            case '.':
+                toker.next();
+                tokens.push({
+                    tokenType: 'type',
+                    range: toker.range(),
+                    tokenModifiers: []
+                });
+                return toker.next() || '';
+            default:
+                return '';
+        }
+    }
+
+    static parseVar(toker: BlitzToker, ident?: boolean, tag?: boolean) {
+        if (!ident && !tag) {
+            tokens.push({
+                tokenType: 'variable',
+                range: toker.range(),
+                tokenModifiers: []
+            });
+            toker.next();
+            this.parseTypeTag(toker);
+        }
+        if (toker.curr() == '(') {
+            toker.next();
+            this.parseExprSeq(toker);
+            toker.next();
+        }
+
+        for (; ;) {
+            if (toker.curr() == '\\') {
+                toker.next();
+                tokens.push({
+                    tokenType: 'field',
+                    range: toker.range(),
+                    tokenModifiers: []
+                });
+                toker.next();
+                this.parseTypeTag(toker);
+            } else if (toker.curr() == '[') {
+                toker.next();
+                this.parseExprSeq(toker);
+                toker.next();
+            } else {
+                break;
+            }
+        }
+    }
+
+    static parseVarDecl(toker: BlitzToker, kind: 'local' | 'global' | 'param' | 'field', constant: boolean) {
+        tokens.push({
+            tokenType: kind == 'param' ? 'parameter' : kind == 'field' ? kind : 'variable',
+            range: toker.range(),
+            tokenModifiers: constant ? ['readonly'] : []
+        });
+        toker.next();
+        this.parseTypeTag(toker);
+        if (toker.curr() == '[') {
+            toker.next();
+            this.parseExprSeq(toker);
+            toker.next();
+        } else {
+            if (toker.curr() == '=') {
+                toker.next();
+                this.parseExpr(toker);
+            }
+        }
+    }
+
+    static parseArrayDecl(toker: BlitzToker) {
+        tokens.push({
+            tokenType: 'function',
+            range: toker.range(),
+            tokenModifiers: []
+        });
+        toker.next();
+        this.parseTypeTag(toker);
+        toker.next();
+        this.parseExprSeq(toker, 'parameter');
+        toker.next();
+    }
+
+    static parseFuncDecl(toker: BlitzToker) {
+        toker.next();
+        tokens.push({
+            tokenType: 'function',
+            range: toker.range(),
+            tokenModifiers: parsed.funcs.find(fun => fun.ident == toker.text().toLowerCase())?.deprecated === undefined ? [] : ['deprecated']
+        });
+        toker.next();
+        this.parseTypeTag(toker);
+        if (toker.next() != ')') {
+            for (; ;) {
+                this.parseVarDecl(toker, 'param', false);
+                if (toker.curr() != ',') break;
+                toker.next();
+            }
+        }
+        toker.next();
+        this.parseStmtSeq(toker, 'fun');
+        toker.next();
+    }
+
+    static parseStructDecl(toker: BlitzToker) {
+        toker.next();
+        tokens.push({
+            tokenType: 'type',
+            range: toker.range(),
+            tokenModifiers: []
+        });
+        toker.next();
+        while (toker.curr() == '\n') toker.next();
+        while (toker.curr() == 'field') {
+            do {
+                toker.next();
+                this.parseVarDecl(toker, 'field', false);
+            } while (toker.curr() == ',');
+            while (toker.curr() == '\n') toker.next();
+        }
+        toker.next();
+    }
+
+    static parseIf(toker: BlitzToker) {
+        this.parseExpr(toker);
+        if (toker.curr() == 'then') toker.next();
+        const blockIf = isTerm(toker.curr());
+        this.parseStmtSeq(toker, blockIf ? 'block' : 'line');
+        if (toker.curr() == 'elseif') {
+            toker.next();
+            this.parseIf(toker);
+        } else if (toker.curr() == 'else') {
+            toker.next();
+            this.parseStmtSeq(toker, blockIf ? 'block' : 'line');
+        }
+    }
+
+    static parseExprSeq(toker: BlitzToker, override?: string) {
+        while (this.parseExpr(toker, override)) {
+            if (toker.curr() != ',') break;
+            toker.next();
+        }
+    }
+
+    static parseExpr(toker: BlitzToker, override?: string) {
+        if (toker.curr() == 'not') {
+            toker.next();
+            const lhs = this.parseExpr1(toker, override);
+            if (!lhs) return;
+        }
+        return this.parseExpr1(toker, override);
+    }
+
+    static parseExpr1(toker: BlitzToker, override?: string) {
+        const start = toker.range().start;
+        let lhs = this.parseExpr2(toker, override);
+        if (!lhs) return;
+        for (; ;) {
+            const c = toker.curr();
+            if (c != 'and' && c != 'or' && c != 'xor') return lhs;
+            toker.next();
+            this.parseExpr2(toker, override);
+        }
+    }
+
+    static parseExpr2(toker: BlitzToker, override?: string) {
+        const start = toker.range().start;
+        let lhs = this.parseExpr3(toker, override);
+        if (!lhs) return;
+        for (; ;) {
+            const c = toker.curr();
+            if (c != '<' && c != '>' && c != '=' && c != 'le' && c != 'ge' && c != 'ne') return lhs;
+            toker.next();
+            this.parseExpr3(toker, override);
+        }
+    }
+
+    static parseExpr3(toker: BlitzToker, override?: string) {
+        const start = toker.range().start;
+        let lhs = this.parseExpr4(toker, override);
+        if (!lhs) return;
+        for (; ;) {
+            const c = toker.curr();
+            if (c != '+' && c != '-') return lhs;
+            toker.next();
+            this.parseExpr4(toker, override);
+        }
+    }
+
+    static parseExpr4(toker: BlitzToker, override?: string) {
+        const start = toker.range().start;
+        let lhs = this.parseExpr5(toker, override);
+        if (!lhs) return;
+        for (; ;) {
+            const c = toker.curr();
+            if (c != 'shl' && c != 'shr' && c != 'sar') return lhs;
+            toker.next();
+            this.parseExpr5(toker, override);
+        }
+    }
+
+    static parseExpr5(toker: BlitzToker, override?: string) {
+        const start = toker.range().start;
+        let lhs = this.parseExpr6(toker, override);
+        if (!lhs) return;
+        for (; ;) {
+            const c = toker.curr();
+            if (c != '*' && c != '/' && c != 'mod') return lhs;
+            toker.next();
+            this.parseExpr6(toker, override);
+        }
+    }
+
+    static parseExpr6(toker: BlitzToker, override?: string) {
+        let lhs = this.parseUniExpr(toker, override);
+        if (!lhs) return;
+        for (; ;) {
+            const c = toker.curr();
+            if (c != '^') return lhs;
+            toker.next();
+            this.parseUniExpr(toker, override);
+        }
+    }
+
+    static parseUniExpr(toker: BlitzToker, override?: string) {
+        const c = toker.curr();
+        switch (c) {
+            case 'int':
+                if (toker.next() == '%') toker.next();
+                break;
+            case 'float':
+                if (toker.next() == '#') toker.next();
+                break;
+            case 'str':
+                if (toker.next() == '$') toker.next();
+                break;
+            case 'object':
+                if (toker.next() == '.') toker.next();
+                tokens.push({
+                    tokenType: 'type',
+                    range: toker.range(),
+                    tokenModifiers: []
+                });
+                toker.next();
+                this.parseUniExpr(toker, override);
+                break;
+            case 'handle':
+            case 'before':
+            case 'after':
+            case '+':
+            case '-':
+            case 'abs':
+            case 'sgn':
+            case '~':
+                toker.next();
+                this.parseUniExpr(toker, override);
+                break;
+            default:
+                this.parsePrimary(toker, override);
+                break;
+        }
+        return true;
+    }
+
+    static parsePrimary(toker: BlitzToker, override?: string) {
+        switch (toker.curr()) {
+            case '(':
+                toker.next();
+                this.parseExpr(toker, override);
+                if (toker.curr() == ')') toker.next();
+                break;
+            case 'new':
+            case 'first':
+            case 'last':
+                toker.next();
+                tokens.push({
+                    tokenType: 'type',
+                    range: toker.range(),
+                    tokenModifiers: []
+                });
+                toker.next();
+                break;
+            case 'null':
+            case 'intconst':
+            case 'floatconst':
+            case 'stringconst':
+            case 'binconst':
+            case 'hexconst':
+            case 'pi':
+            case 'true':
+            case 'false':
+                toker.next();
+                break;
+            case 'ident':
+                const token = {
+                    tokenType: override || 'variable',
+                    range: toker.range(),
+                    tokenModifiers: parsed.consts.find(c => c.ident == toker.text()) ? ['readonly'] : []
+                };
+                const ident = toker.text().toLowerCase();
+                toker.next();
+                this.parseTypeTag(toker);
+                const isArray = parsed.arrayDecls.has(ident);
+                if (toker.curr() == '(' && !isArray) {
+                    token.tokenType = 'function';
+                    if (parsed.funcs.find(fun => fun.ident == toker.text().toLowerCase())?.deprecated !== undefined) token.tokenModifiers.push('deprecated');
+                    toker.next();
+                    this.parseExprSeq(toker, override);
+                    toker.next();
+                } else {
+                    if (isArray) token.tokenType = 'function';
+                    this.parseVar(toker, true, true);
+                }
+                tokens.push(token);
+                break;
+        }
+    }
 }

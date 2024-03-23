@@ -1,8 +1,7 @@
 import * as vscode from 'vscode';
-import { blitzCtx } from '../context/context';
+import { parsed, userLibs } from '../context/context';
 import { stubs } from '../context/stubs';
-import { startOfComment, isInString, removeType } from '../util/functions';
-import { BlitzDimmedArray, BlitzFunction } from '../util/types';
+import { isInString, prettyName, removeType, startOfComment } from '../util/functions';
 
 export default class SignatureHelpProvider implements vscode.SignatureHelpProvider {
 
@@ -10,7 +9,6 @@ export default class SignatureHelpProvider implements vscode.SignatureHelpProvid
 
     provideSignatureHelp(document: vscode.TextDocument, position: vscode.Position, token: vscode.CancellationToken, context: vscode.SignatureHelpContext): vscode.ProviderResult<vscode.SignatureHelp> {
         let ret = new vscode.SignatureHelp();
-        const tokens = blitzCtx.flatMap(c => c.tokens);
         let line = document.lineAt(position).text;
         if (position.character >= startOfComment(line)) return;
         if (line.trimStart().toLowerCase().startsWith('function')) return;
@@ -26,32 +24,33 @@ export default class SignatureHelpProvider implements vscode.SignatureHelpProvid
             if (c == '"' || isInString(line, i)) continue;
             if ((!c.match(/\w/) || i == 0)) {
                 const word = line.substring(i + (i == 0 ? 0 : 1), wend);
-                if (pc < 0)
-                    for (const t of tokens) {
-                        if (t instanceof BlitzDimmedArray && t.lcname == word && !document.lineAt(position).text.toLowerCase().startsWith('dim')) {
-                            let sigInf = new vscode.SignatureInformation('(element) ' + t.oname + '(index0');
-                            sigInf.parameters.push(new vscode.ParameterInformation('index0'));
-                            for (let i = 1; i < t.dimension; i++) {
-                                sigInf.label += ', index' + i;
-                                sigInf.parameters.push(new vscode.ParameterInformation('index' + i));
-                            }
-                            sigInf.label += ')';
-                            ret.signatures.push(sigInf);
-                            ret.activeParameter = ps[0];
-                            break chars;
+                if (pc < 0) {
+                    if (parsed.arrayDecls.has(word) && !document.lineAt(position).text.toLowerCase().startsWith('dim')) {
+                        const t = parsed.arrayDecls.get(word)!;
+                        let sigInf = new vscode.SignatureInformation(`(element) ${t.name}(index0`);
+                        sigInf.parameters.push(new vscode.ParameterInformation('index0'));
+                        for (let i = 1; i < t.dimension; i++) {
+                            sigInf.label += ', index' + i;
+                            sigInf.parameters.push(new vscode.ParameterInformation('index' + i));
                         }
-                        if (!(t instanceof BlitzFunction)) continue;
-                        if (t.lcname == word) {
-                            let sigInf = new vscode.SignatureInformation(t.declaration);
-                            for (const l of t.locals) if (l.storageType == 'param') {
-                                sigInf.parameters.push(new vscode.ParameterInformation(l.oname + (l.dataType == '(%)' ? '' : ('#$%'.indexOf(l.dataType) == -1 ? '.' : '') + l.dataType), l.description));
+                        sigInf.label += ')';
+                        ret.signatures.push(sigInf);
+                        ret.activeParameter = ps[0];
+                        break chars;
+                    }
+                    for (const fun of parsed.funcs.concat(userLibs)) {
+                        if (fun.ident == word) {
+                            let sigInf = new vscode.SignatureInformation(`Function ${fun.name} (${fun.params.map(param => prettyName(param.name, param.tag)).join(', ')})`);
+                            for (const param of fun.params) {
+                                sigInf.parameters.push(new vscode.ParameterInformation(param.name, `${prettyName(param.name, param.tag)}\n${param.description ?? '(no description available)'}\n${param.value != undefined ? 'optional, default value: ' + param.value : ''}`));
                             }
-                            sigInf.documentation = t.stub?.description.concat(t.stub.parameters).join('  \n');
+                            sigInf.documentation = fun.description ? 'Function description:\n' + fun.description : 'No function description.';
                             ret.signatures.push(sigInf);
                             ret.activeParameter = ps[0];
                             break chars;
                         }
                     }
+                }
                 if (word == 'dim') {
                     const nameStart = line.indexOf(' ', i + 2);
                     const nameEnd = line.indexOf('(', nameStart + 1);

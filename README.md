@@ -1,21 +1,27 @@
 # Language support for Blitz3D
 
 This extension enables language support for the BlitzBasic language and extends the usage of the Blitz3D program and its `blitzcc` compiler.
-The ability to run programs and detect errors is supported on Windows only. Cross-platform Blitz3D versions are not supported yet, though most of the functionality is available on all platforms.
-> Note: This extension is in alpha phase. Bug-free experience cannot be guaranteed.
+Standalone parsing and type checking is implemented based on [the original Blitz3D source code](https://github.com/blitz-research/blitz3d) which is released under the zlib/libpng license by Blitz Research Ltd.
+
+> Note: This is a pre-release version. You might experience more bugs than usual.
 
 ## Release Notes
 
-This update contains lots of bug fixes.
-
 > To see all the changes, check the [changelog](CHANGELOG.md) or the [GitHub repository](https://github.com/denesfilotas/vscode-blitz3d).
+
+In this update the whole parser has been rewritten based on the official Blitz3D source. This results in some missing functionality from previous versions.
+
+- Added BBDoc keywords: `author`, `return`, `since` (by [@ZiYueCommentary](https://github.com/ZiYueCommentary/))
+- Added support for deprecated functions in BBDoc, inline styles and code completion
 
 ## Features
 
 The extension provides the following functionalities:
 
 - Syntax highlighting
+- Syntax error reporting
 - Semantic highlighting
+- Some semantic warnings and errors (WIP)
 - Basic IntelliSense suggestions
 - Document symbols tree
 - Signature help
@@ -34,16 +40,24 @@ BBDoc helps to write code more efficiently with some added keywords, without aff
 
 ### Function documentation
 
-The following keywords can be used in lines preceding function declarations:
+The following keywords can be used in lines preceding function definitions:
 
 - `;; ` followed by the documentation of the function
 - `;;param ` followed by the name of a parameter and its description
 - `;;author ` followed by the author of the function
-- `;;return` followed by the return value of the function
-- `;;since` followed by the version when the function was created
+- `;;return ` followed by the return value of the function
+- `;;since ` followed by the version when the function was created
+- `;;deprecated`, optionally followed by a reasoning or alternatives
 
 These keywords are interpreted as comments in standard blitz3d, but within vscode they are used to provide information on mouse hover or code completion.
-If there is no bbdoc for a function and the preceding line contains just a comment, that is parsed as description.
+
+### Type documentation
+
+The following keywords can be used in lines preceding type definitions:
+
+- `;; ` followed by the documentation of the type
+- `;;author ` followed by the author of the type
+- `;;since ` followed by the version when the type was created
 
 ### Manage tasks with TODOS
 
@@ -57,9 +71,11 @@ Comments following global, local, const or field declarations are interpreted as
 
 See contributed settings in the `Feature Contributions` tab.
 
-## Known Issues
+## Known Issues and limitaions
 
-- Variables might not be recognized when no explicit declaration is present
 - Include files might not be recognized when filename is not explicitly specified or after using changedir
-- Functions defined in userlibs without a decorated name are not highlighted in decls files
-- Hangs and unexpected behaviour (without code loss) can be experienced rarely
+- Userlibs are only partially supported
+  - Functions without a decorated name (alias) are not syntax highlighted
+  - BBDoc is not available yet for userlib-defined functions
+- Information provided on hover might be incorrect if there are more than one objects with the same name (like a function and a type)
+- Type checking is limited as of now

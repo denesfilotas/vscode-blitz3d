@@ -1,89 +1,19 @@
 import * as vscode from 'vscode';
-import * as path from 'path';
-import { blitzCtx } from '../context/context';
-import { isInString, removeType, startOfComment } from '../util/functions';
-import { BlitzFunction, BlitzToken, BlitzType, BlitzVariable } from '../util/types';
+import { analyzed, parsed, userLibs } from '../context/context';
 import { stubs } from '../context/stubs';
+import * as bb from '../context/types';
+import { isInString, prettyName, startOfComment } from '../util/functions';
+import { getType } from './typeDefinitionProvider';
 
-export function getFieldFromNestedExpression(exp: string, name: string, tokens: BlitzToken[], location: vscode.Location): { field: BlitzVariable, parent: BlitzType; } | undefined {
-    const parents: string[] = [];
-    const tline = exp.trim().replace(/\s*\\\s*/g, '\\');
-    if (tline.length > 1) {
-        const x = tline.length - 1;
-        let fend = x;
-        if (tline[x] == '\\') {
-            for (let i = x - 1; i >= 0; i--) {
-                if (tline[i] == ']') {
-                    i = tline.substring(0, i).lastIndexOf('[');
-                    fend = i;
-                    continue;
-                }
-                if (tline[i] == ')') {
-                    i = tline.substring(0, i).lastIndexOf('(');
-                    fend = i;
-                    continue;
-                }
-                if (tline[i] == '\\') {
-                    parents.unshift(removeType(tline.substring(i + 1, fend)));
-                    fend = i;
-                    continue;
-                }
-                if (!tline[i].match(/\w/)) {
-                    parents.unshift(removeType(tline.substring(i + 1, fend)));
-                    break;
-                }
-                if (i == 0) {
-                    parents.unshift(removeType(tline.substring(0, fend)));
-                }
-            }
-        }
-    }
-    if (parents.length > 0) {
-        let curr: BlitzType | undefined;
-        tlu: for (const t of tokens
-            .concat((<Array<BlitzFunction>>tokens.filter(
-                t => t instanceof BlitzFunction
-                    && location.uri.path == t.uri.path
-                    && location.range.start.isAfter(t.declarationRange.start)
-                    && location.range.end.isBefore(t.range.end)))
-                .flatMap(t => t.locals))) {
-            if (t.lcname == parents[0].toLowerCase()) {
-                let type = '';
-                if (t instanceof BlitzFunction) type = t.returnType.split('[')[0].split('(')[0];
-                else if (t instanceof BlitzVariable) type = t.dataType.split('[')[0].split('(')[0];
-                for (const t of tokens.filter(t => t instanceof BlitzType)) {
-                    if (t.lcname == type.toLowerCase()) {
-                        curr = <BlitzType>t;
-                        break tlu;
-                    }
-                }
-            }
-        }
-        ps: for (let i = 1; curr && i < parents.length; i++) {
-            const parent = parents[i].toLowerCase();
-            for (const f of curr.fields) {
-                if (f.lcname == parent) {
-                    const type = f.dataType.split('[')[0].split('(')[0];
-                    for (const t of tokens.filter(t => t instanceof BlitzType)) {
-                        if (t.lcname == type.toLowerCase()) {
-                            curr = <BlitzType>t;
-                            continue ps;
-                        }
-                    }
-                }
-            }
-        }
-        if (curr) {
-            for (const f of curr.fields) {
-                if (f.lcname == name) {
-                    return {
-                        field: f,
-                        parent: curr
-                    };
-                }
-            }
-        }
-    }
+export function getFieldFromNestedExpression(exp: string, name: string, location: vscode.Location): { field: bb.Variable, parent: bb.Type; } | undefined {
+    const parent = getType(exp, location);
+    if (!parent) return;
+    const field = parent.fields.find(f => f.ident == name);
+    if (!field) return;
+    return {
+        field: field,
+        parent: parent
+    };
 }
 
 export default class BlitzHoverProvider implements vscode.HoverProvider {
@@ -130,100 +60,181 @@ export default class BlitzHoverProvider implements vscode.HoverProvider {
                 }
             }
         }
-        let dl = 'Defined in ' + document.fileName.substring(document.fileName.lastIndexOf(path.sep) + 1);
         const example = new vscode.MarkdownString();
         example.isTrusted = true;
-        for (const stub of stubs) {
-            if (stub.name.toLowerCase() == def) {
-                def = '```\n' + stub.declaration + '\n```';
-                desc.appendMarkdown('\n#### Parameters\n');
-                stub.parameters.forEach((p) => {
-                    const fsp = (p.trimStart() + ' ').indexOf(' ');
-                    desc.appendMarkdown('\n `' + p.trimStart().substring(0, fsp) + '` ' + p.trim().substring(fsp) + '  \n');
+        const stub = stubs.find(s => s.name.toLowerCase() == def);
+        if (stub) {
+            def = '```\n' + stub.declaration + '\n```';
+            desc.appendMarkdown('\n#### Parameters\n');
+            stub.parameters.forEach((p) => {
+                const fsp = (p.trimStart() + ' ').indexOf(' ');
+                desc.appendMarkdown('\n `' + p.trimStart().substring(0, fsp) + '` ' + p.trim().substring(fsp) + '  \n');
 
-                });
-                desc.appendMarkdown('\n\n#### Description\n');
-                stub.description.forEach((descLine) => {
-                    desc.appendMarkdown('\n' + descLine);
-                });
-                if (stub.example.length == 0) break;
-                // desc.appendMarkdown('\n#### Example\n');
-                //desc.appendCodeblock(stub.example.replace('\r\n', '  \n'));
-                example.appendMarkdown(`[Open example](command:extension.blitz3d.openExample?${encodeURIComponent(JSON.stringify(stub.name))})`);
-                dl = '';
-                break;
-            }
-        }
-        const tokens: BlitzToken[] = blitzCtx.flatMap(c => c.tokens);
-
-        // check if hovered over a field
-        const parents: string[] = [];
-        const field = getFieldFromNestedExpression(line.substring(0, wr.start.character), def, tokens, new vscode.Location(document.uri, position));
-        if (field) {
+            });
+            desc.appendMarkdown('\n\n#### Description\n');
+            stub.description.forEach((descLine) => {
+                desc.appendMarkdown('\n' + descLine);
+            });
+            if (stub.example) example.appendMarkdown(`[Open example](command:extension.blitz3d.openExample?${encodeURIComponent(JSON.stringify(stub.name))})`);
             return {
                 contents: [
-                    '```\n' + field.field.declaration + '\n```',
-                    new vscode.MarkdownString(field.field.description),
-                    'Defined in Type ' + field.parent.oname
+                    def,
+                    desc,
+                    example
                 ],
                 range: wr
             };
         }
 
-        let newdef = '', priornewdef = '';
-        for (const t of tokens) {
-            if (t instanceof BlitzFunction && t.uri.path == document.uri.path && position.isAfter(t.declarationRange.start) && position.isBefore(t.endPosition)) {
-                for (const loc of t.locals) {
-                    if (def == loc.lcname && !((loc.matchBefore && !line.substring(0, wr.start.character).match(loc.matchBefore)) || (loc.matchAfter && !line.substring(wr.end.character).match(loc.matchAfter)))) {
-                        priornewdef = '```\n' + loc.declaration + '\n```';
-                        if (loc.description) desc.appendMarkdown(loc.description);
-                        dl = 'Defined in Function ' + t.oname;
-                    }
+        // check if hovered over a field
+        const field = getFieldFromNestedExpression(line.substring(0, wr.start.character), def, new vscode.Location(document.uri, position));
+        if (field) {
+            return {
+                contents: [
+                    '```\nField ' + prettyName(field.field!.name, field.field!.tag) + '\n```',
+                    new vscode.MarkdownString(field.field!.description),
+                    'Defined in Type `' + field.parent.name + '`'
+                ],
+                range: wr
+            };
+        }
+
+        // field declaration in place
+        const word = document.getText(wr).toLowerCase();
+        if (word != 'field') {
+            for (const type of parsed.structs) {
+                if (type.uri.path != document.uri.path) continue;
+                if (!type.range.contains(position)) continue;
+                const field = type.fields.find(field => field.ident == word);
+                if (!field) break;
+                return {
+                    contents: [
+                        '```\nField ' + prettyName(field.name, field.tag) + '\n```',
+                        new vscode.MarkdownString(field.description),
+                        'Defined in Type `' + type.name + '`'
+                    ],
+                    range: wr
                 };
             }
-            if (def == t.lcname) {
-                if (t.matchBefore && !line.substring(0, wr.start.character).match(t.matchBefore)) continue;
-                if (t.matchAfter && !line.substring(wr.end.character).match(t.matchAfter)) continue;
-                newdef = '```\n' + t.declaration + '\n```';
-                if (t instanceof BlitzFunction && t.stub /*&& '#$%. ('.indexOf(t.declaration.charAt(t.name.length + 9)) >= 0*/) {
-                    t.stub.description.forEach((descLine) => {
-                        desc.appendMarkdown(descLine);
-                    });
-                    if (t.stub.parameters.length > 0) desc.appendMarkdown('\n#### Parameters\n');
-                    t.stub.parameters.forEach((p) => {
-                        desc.appendMarkdown(p + '  \n');
-                    });
-                    if (t.stub.return.length > 0) {
-                        desc.appendMarkdown('\n#### Return\n');
-                        desc.appendMarkdown(t.stub.return + '  \n');
-                    }
-                    if (t.stub.author.length > 0) desc.appendMarkdown('\n\n#### Authors\n');
-                    t.stub.author.forEach((authorLine) => {
-                        desc.appendMarkdown(authorLine + '  \n');
-                    });
-                    if (t.stub.since.length > 0) {
-                        desc.appendMarkdown('\n#### Since\n');
-                        desc.appendMarkdown(t.stub.since + '  \n');
-                    }
-                }
-                if (t.uri != document.uri) dl = 'Defined in ' + t.uri.path.substring(t.uri.path.lastIndexOf('/') + 1);
-                if (t instanceof BlitzVariable && t.description) desc.appendText(t.description);
-                if (!(t instanceof BlitzVariable)) break; // Variables can be dimmed
-            }
         }
-        if (priornewdef.length > 0) def = priornewdef;
-        else if (newdef.length > 0) def = newdef;
-        // const hover = new vscode.MarkdownString();
-        // hover.supportHtml = true;
-        // hover.appendMarkdown(desc.join('  \n'));
-        return {
+
+        const constant = parsed.consts.find(constant => constant.ident == def);
+        if (constant) return {
             contents: [
-                def,
-                desc,
-                example,
-                dl
+                '```\n' + (constant.value ? `Const ${prettyName(constant.name, constant.tag)} = ${constant.value}` : 'Const ' + prettyName(constant.name, constant.tag)) + '\n```',
+                new vscode.MarkdownString(constant.description),
+                'Defined in ' + constant.uri.path.substring(constant.uri.path.lastIndexOf('/') + 1)
             ],
             range: wr
         };
+
+        const context = analyzed.funcs.find(fun => fun.uri.path == document.uri.path && position.isAfter(fun.range.start) && position.isBefore(fun.range.end));
+        if (context) {
+            const local = context.locals.find(local => local.ident == def);
+            if (local) return {
+                contents: [
+                    '```\n' + (local.kind == 'param' ? '(param) ' : 'Local ') + prettyName(local.name, local.tag) + '\n```',
+                    new vscode.MarkdownString(local.description),
+                    'Defined in Function `' + context.name + '`'
+                ],
+                range: wr
+            };
+        }
+
+        for (const arr of parsed.arrayDecls.values()) {
+            if (arr.ident == def) {
+                return {
+                    contents: [
+                        '```\nDim ' + prettyName(arr.name, arr.tag) + '()\n```',
+                        new vscode.MarkdownString(arr.description),
+                        'Defined in ' + arr.uri.path.substring(arr.uri.path.lastIndexOf('/') + 1)
+                    ],
+                    range: wr
+                };
+            }
+        }
+
+        const global = parsed.globals.find(v => v.ident == def);
+        if (global) return {
+            contents: [
+                '```\nGlobal ' + prettyName(global.name, global.tag) + '\n```',
+                new vscode.MarkdownString(global.description),
+                'Defined in ' + global.uri.path.substring(global.uri.path.lastIndexOf('/') + 1)
+            ],
+            range: wr
+        };
+
+        const variable = analyzed.locals.find(v => v.ident == def);
+        if (variable) return {
+            contents: [
+                '```\nLocal ' + prettyName(variable.name, variable.tag) + '\n```',
+                new vscode.MarkdownString(variable.description),
+                'Defined in ' + variable.uri.path.substring(variable.uri.path.lastIndexOf('/') + 1)
+            ],
+            range: wr
+        };
+
+        const label = parsed.labels.find(label => label.ident == def);
+        if (label) return {
+            contents: [
+                '```\n(label) .' + label.name + '\n```',
+                new vscode.MarkdownString(label.description),
+                'Defined in ' + label.uri.path.substring(label.uri.path.lastIndexOf('/') + 1)
+            ],
+            range: wr
+        };
+
+        const fun = parsed.funcs.concat(userLibs).find(fun => fun.ident == def);
+        if (fun) {
+            def = '```\n' + `Function ${prettyName(fun.name, fun.tag)}(${fun.params.map(param => prettyName(param.name, param.tag) + (param.value != undefined ? ' = ' + param.value : '')).join(', ')})` + '\n```';
+            if (fun.description) desc.appendMarkdown(fun.description);
+            if (fun.params.length > 0) {
+                desc.appendMarkdown('\n#### Parameters\n');
+                for (const param of fun.params) {
+                    desc.appendMarkdown(`\`${param.name}\` ${param.value != undefined ? '(optional)' : ''} ${param.description ?? ''}  \n`);
+                }
+            }
+            if (fun.returns) desc.appendMarkdown(`\n#### Returns\n${fun.returns}\n`);
+            if (fun.authors?.length) {
+                desc.appendMarkdown('\n#### Author' + (fun.authors.length > 1 ? 's\n' : '\n'));
+                for (const author of fun.authors) {
+                    desc.appendMarkdown(` - ${author}  \n`);
+                }
+            }
+            if (fun.since) desc.appendMarkdown(`\n#### Since\n${fun.since}\n`);
+            if (fun.deprecated !== undefined) desc.appendMarkdown(`\n#### Deprecated\n${fun.deprecated}\n`);
+            return {
+                contents: [
+                    def,
+                    desc,
+                    example,
+                    'Defined in ' + fun.uri.path.substring(fun.uri.path.lastIndexOf('/') + 1)
+                ],
+                range: wr
+            };
+        }
+
+        const type = parsed.structs.find(type => type.ident == def);
+        if (type) {
+            def = '```\nType ' + type.name + '\n```';
+            if (type.description) desc.appendMarkdown(type.description);
+            if (type.authors?.length) {
+                desc.appendMarkdown('\n#### Author' + (type.authors.length > 1 ? 's\n' : '\n'));
+                for (const author of type.authors) {
+                    desc.appendMarkdown(` - ${author}  \n`);
+                }
+            }
+            if (type.since) desc.appendMarkdown(`\n#### Since\n${type.since}\n`);
+            return {
+                contents: [
+                    def,
+                    desc,
+                    example,
+                    'Defined in ' + type.uri.path.substring(type.uri.path.lastIndexOf('/') + 1)
+                ],
+                range: wr
+            };
+        }
+        return;
     }
 }

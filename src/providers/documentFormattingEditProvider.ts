@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { startOfComment, isInString } from '../util/functions';
+import { isInString, startOfComment } from '../util/functions';
 
 export default class DocumentFormattingEditProvider implements vscode.DocumentFormattingEditProvider {
     provideDocumentFormattingEdits(document: vscode.TextDocument, options: vscode.FormattingOptions, token: vscode.CancellationToken): vscode.ProviderResult<vscode.TextEdit[]> {

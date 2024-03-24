@@ -83,11 +83,28 @@ function loadUserLibs(): bb.DeclParseResult {
         return r;
     }
     for (const decl of decls) {
-        const toker = decl.toker;
+        const toker: DeclToker = decl.toker;
         const uri = decl.uri;
 
         const funcs: bb.Function[] = [];
         const diagnostics: vscode.Diagnostic[] = [];
+
+        const bbdoc: {
+            descLines: string[],
+            paramLines: Map<string, string>,
+            authors: string[],
+            returns: string,
+            since: string,
+            deprecated: string;
+        } = {
+            descLines: [],
+            paramLines: new Map<string, string>(),
+            authors: [],
+            returns: '',
+            since: '',
+            deprecated: ''
+        };
+
         let lib = [];
         toker.next();
         while (toker.curr() != 'eof') {
@@ -109,6 +126,39 @@ function loadUserLibs(): bb.DeclParseResult {
                     range: toker.range(),
                     severity: vscode.DiagnosticSeverity.Error
                 });
+                toker.next();
+            } else if (toker.curr() == 'comment') {
+                const comment = toker.text();
+                if (comment.startsWith(';; ')) {
+                    bbdoc.descLines.push(comment.substring(3));
+                } else if (comment.startsWith(';;param ')) {
+                    const line = comment.substring(8);
+                    if (line.includes(' ')) {
+                        const param = line.substring(0, line.indexOf(' '));
+                        const desc = line.substring(line.indexOf(' ') + 1);
+                        bbdoc.paramLines.set(param, desc);
+                    } else {
+                        diagnostics.push({
+                            message: `BBDoc: incomplete parameter description`,
+                            range: toker.range(),
+                            severity: vscode.DiagnosticSeverity.Warning
+                        });
+                    }
+                } else if (comment.startsWith(';;author ')) {
+                    bbdoc.authors.push(comment.substring(9));
+                } else if (comment.startsWith(';;return ')) {
+                    bbdoc.returns = comment.substring(9);
+                } else if (comment.startsWith(';;since ')) {
+                    bbdoc.since = comment.substring(8);
+                } else if (comment.startsWith(';;deprecated')) {
+                    bbdoc.deprecated = comment.substring(12).trim();
+                } else if (comment.startsWith(';;') && !comment.startsWith(';;todo')) {
+                    diagnostics.push({
+                        message: `Invalid BBDoc`,
+                        range: toker.range(),
+                        severity: vscode.DiagnosticSeverity.Warning
+                    });
+                }
                 toker.next();
             } else if (toker.curr() == 'ident') {
                 if (!lib.length) diagnostics.push({
@@ -148,7 +198,8 @@ function loadUserLibs(): bb.DeclParseResult {
                             range: toker.range(),
                             kind: 'param',
                             tag: maybe_tag,
-                            uri: uri
+                            uri: uri,
+                            description: bbdoc.paramLines.get(pname.toLowerCase())
                         });
                         if (toker.curr() != ',') break;
                         toker.next();
@@ -179,7 +230,11 @@ function loadUserLibs(): bb.DeclParseResult {
                     range: toker.range(),
                     tag: tag,
                     uri: uri,
-                    description: `From lib "${lib[lib.length - 1]}"`
+                    description: `${bbdoc.descLines.join('\n')}\nFrom lib "${lib[lib.length - 1]}"`,
+                    authors: bbdoc.authors,
+                    deprecated: bbdoc.deprecated,
+                    returns: bbdoc.returns,
+                    since: bbdoc.since
                 });
             } else {
                 diagnostics.push({
@@ -209,20 +264,20 @@ export function updateContext(document: vscode.TextDocument) {
             parser = new BlitzParser(document.getText(), document.uri);
             parsed = parser.getResults();
         }
+        for (const [uri, diagnostics] of parsed.diagnostics) {
+            syntaxErrors.set(uri, diagnostics);
+        }
         if (analyzer) {
             analyzed = analyzer.analyze(document.getText(), document.uri, parsed);
         } else {
             analyzer = new BlitzAnalyzer(document.getText(), document.uri, parsed);
             analyzed = analyzer.getResults();
         }
+        for (const [uri, diagnostics] of analyzed.diagnostics) {
+            semanticErrors.set(uri, diagnostics);
+        }
     } else if (document.languageId == 'blitz3d-decls') {
         loadUserLibs();
-    }
-    for (const [uri, diagnostics] of parsed.diagnostics) {
-        syntaxErrors.set(uri, diagnostics);
-    }
-    for (const [uri, diagnostics] of analyzed.diagnostics) {
-        semanticErrors.set(uri, diagnostics);
     }
 }
 
@@ -242,14 +297,14 @@ export function updateUserLibs() {
  */
 export function obtainWorkingDir(uri: vscode.Uri): string {
     const config = vscode.workspace.getConfiguration('launch', uri);
-    const launchConfigs = config.get<any[]>("configurations")
+    const launchConfigs = config.get<any[]>("configurations");
     if (!launchConfigs) return uri.path.substring(process.platform === 'win32' ? 1 : 0, uri.path.lastIndexOf('/'));
     for (const launch of launchConfigs) {
         if (launch.type == 'blitz3d' && launch.bbfile) {
             if (path.isAbsolute(launch.bbfile)) return launch.bbfile;
             const wsFolder = vscode.workspace.workspaceFolders?.find(folder => uri.path.startsWith(folder.uri.path));
             const wspath = wsFolder?.uri.path.substring(process.platform === 'win32' ? 1 : 0, uri.path.lastIndexOf('/')) || '';
-            return path.join(wspath, launch.bbfile.substring(0, launch.bbfile.lastIndexOf('/')))
+            return path.join(wspath, launch.bbfile.substring(0, launch.bbfile.lastIndexOf('/')));
         }
     }
     return uri.path.substring(process.platform === 'win32' ? 1 : 0, uri.path.lastIndexOf('/'));

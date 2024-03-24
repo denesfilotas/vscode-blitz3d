@@ -9,6 +9,7 @@ import { Analyzer, BlitzAnalyzer } from './analyzer';
 import { semanticErrors, syntaxErrors, userLibErrors } from './diagnostics';
 import { BlitzParser, Parser } from './parser';
 import * as bb from './types';
+import { removeType } from '../util/functions';
 
 export let userLibs: bb.Function[] = [];
 export let blitzpath: string = vscode.workspace.getConfiguration('blitz3d.installation').get('BlitzPath') || env['BLITZPATH'] || '';
@@ -89,20 +90,20 @@ function loadUserLibs(): bb.DeclParseResult {
         const funcs: bb.Function[] = [];
         const diagnostics: vscode.Diagnostic[] = [];
 
-        const bbdoc: {
+        let bbdoc: {
             descLines: string[],
             paramLines: Map<string, string>,
             authors: string[],
             returns: string,
             since: string,
-            deprecated: string;
+            deprecated: string | undefined;
         } = {
             descLines: [],
             paramLines: new Map<string, string>(),
             authors: [],
             returns: '',
             since: '',
-            deprecated: ''
+            deprecated: undefined
         };
 
         let lib = [];
@@ -136,7 +137,7 @@ function loadUserLibs(): bb.DeclParseResult {
                     if (line.includes(' ')) {
                         const param = line.substring(0, line.indexOf(' '));
                         const desc = line.substring(line.indexOf(' ') + 1);
-                        bbdoc.paramLines.set(param, desc);
+                        bbdoc.paramLines.set(removeType(param.toLowerCase()), desc);
                     } else {
                         diagnostics.push({
                             message: `BBDoc: incomplete parameter description`,
@@ -230,12 +231,20 @@ function loadUserLibs(): bb.DeclParseResult {
                     range: toker.range(),
                     tag: tag,
                     uri: uri,
-                    description: `${bbdoc.descLines.join('\n')}\nFrom lib "${lib[lib.length - 1]}"`,
+                    description: `${bbdoc.descLines.join('  \n')}  \nFrom lib "${lib[lib.length - 1]}"`,
                     authors: bbdoc.authors,
                     deprecated: bbdoc.deprecated,
                     returns: bbdoc.returns,
                     since: bbdoc.since
                 });
+                bbdoc = {
+                    descLines: [],
+                    paramLines: new Map<string, string>(),
+                    authors: [],
+                    returns: '',
+                    since: '',
+                    deprecated: undefined
+                };
             } else {
                 diagnostics.push({
                     message: `Syntax error: unexpected ${toker.curr()}`,

@@ -130,7 +130,7 @@ export class BlitzParser implements Parser {
                     if (line.includes(' ')) {
                         const param = line.substring(0, line.indexOf(' '));
                         const desc = line.substring(line.indexOf(' ') + 1);
-                        this.bbdoc.paramLines.set(param, desc);
+                        this.bbdoc.paramLines.set(removeType(param.toLowerCase()), desc);
                     } else {
                         this.diagnostics.get(this.uri)?.push({
                             message: `BBDoc: incomplete parameter description`,

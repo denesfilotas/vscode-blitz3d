@@ -9,10 +9,9 @@ Standalone parsing and type checking is implemented based on [the original Blitz
 
 > To see all the changes, check the [changelog](CHANGELOG.md) or the [GitHub repository](https://github.com/denesfilotas/vscode-blitz3d).
 
-In this update the whole parser has been rewritten based on the official Blitz3D source. This results in some missing functionality from previous versions.
-
-- Added BBDoc keywords: `author`, `return`, `since` (by [@ZiYueCommentary](https://github.com/ZiYueCommentary/))
-- Added support for deprecated functions in BBDoc, inline styles and code completion
+- Bugfixes regarding includes (by [@Aryan807](https://github.com/Aryan807))
+- BBDoc support in userlibs
+- Extended error checking
 
 ## Features
 
@@ -75,8 +74,5 @@ See contributed settings in the `Feature Contributions` tab.
 
 - Include files might not be recognized when filename is not explicitly specified
 - Multiple open folders are not supported, they might falsely collide with each other
-- Userlibs are only partially supported
-  - Functions without a decorated name (alias) are not syntax highlighted
-  - BBDoc is not available yet for userlib-defined functions
 - Information provided on hover might be incorrect if there are more than one objects with the same name (like a function and a type)
 - Type checking is limited as of now

@@ -105,19 +105,20 @@
                             "bbfile": {
                                 "type": "string",
                                 "description": "Blitz3D program to run",
-                                "default": "${file}"
+                                "default": ""
                             }
                         }
                     },
                     "build": {
                         "required": [
-                            "bbfile"
+                            "bbfile",
+                            "outfile"
                         ],
                         "properties": {
                             "bbfile": {
                                 "type": "string",
-                                "description": "Blitz3D program to run",
-                                "default": "${file}"
+                                "description": "Blitz3D program to build",
+                                "default": ""
                             },
                             "outfile": {
                                 "type": "string",

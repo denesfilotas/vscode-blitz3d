@@ -71,9 +71,10 @@ Comments following global, local, const or field declarations are interpreted as
 
 See contributed settings in the `Feature Contributions` tab.
 
-## Known Issues and limitaions
+## Known Issues and limitations
 
-- Include files might not be recognized when filename is not explicitly specified or after using changedir
+- Include files might not be recognized when filename is not explicitly specified
+- Multiple open folders are not supported, they might falsely collide with each other
 - Userlibs are only partially supported
   - Functions without a decorated name (alias) are not syntax highlighted
   - BBDoc is not available yet for userlib-defined functions

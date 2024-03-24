@@ -12,7 +12,7 @@ import * as bb from './types';
 
 export let userLibs: bb.Function[] = [];
 export let blitzpath: string = vscode.workspace.getConfiguration('blitz3d.installation').get('BlitzPath') || env['BLITZPATH'] || '';
-export let blitzCmd = blitzpath.length > 0 ? '"' + path.join(blitzpath, 'bin', 'blitzcc') + '"' : 'blitzcc';
+export let blitzCmd = blitzpath.length > 0 ? '"' + path.join(blitzpath, 'bin', process.platform === 'win32' ? 'blitzcc.exe' : 'blitzcc') + '"' : 'blitzcc';
 export let parser: Parser;
 export let parsed: bb.ParseResult;
 export let analyzer: Analyzer;
@@ -21,7 +21,7 @@ export let analyzed: bb.AnalyzeResult;
 export function updateBlitzPath(notify: boolean) {
     const config: string | undefined = vscode.workspace.getConfiguration('blitz3d.installation').get('BlitzPath');
     blitzpath = config || env['BLITZPATH'] || '';
-    blitzCmd = blitzpath.length > 0 ? '"' + path.join(blitzpath, 'bin', 'blitzcc') + '"' : 'blitzcc';
+    blitzCmd = blitzpath.length > 0 ? '"' + path.join(blitzpath, 'bin', process.platform === 'win32' ? 'blitzcc.exe' : 'blitzcc') + '"' : 'blitzcc';
     if (blitzpath.length > 0) env['BLITZPATH'] = blitzpath;
     cp.exec(blitzCmd, env, (err, stdout, stderr) => {
         if (err) showErrorOnCompile(stdout, stderr);
@@ -30,10 +30,11 @@ export function updateBlitzPath(notify: boolean) {
 }
 
 export function createLaunchContext() {
-    const folder = vscode.workspace.workspaceFolders?.[0];
-    const config = vscode.workspace.getConfiguration('launch', folder?.uri);
     try {
-        const bbfile = config.get<any[]>("configurations")?.[0].bbfile;
+        const folder = vscode.workspace.workspaceFolders?.[0];
+        const config = vscode.workspace.getConfiguration('launch', folder?.uri);
+        const bbfile = config.get<any[]>("configurations")?.[0]?.bbfile;
+        if (!bbfile) return;
         const bbpath = path.isAbsolute(bbfile) ? bbfile : path.join(folder?.uri.path.substring(process.platform === 'win32' ? 1 : 0) ?? '.', bbfile);
         const bbtext = readFileSync(bbpath).toString();
         const bburi = vscode.Uri.file(bbpath);
@@ -67,7 +68,7 @@ function loadUserLibs(): bb.DeclParseResult {
     };
     const basePath = blitzpath || process.env.BLITZPATH;
     if (!basePath) return r;
-    let decls: any[] = []
+    let decls: any[] = [];
     try {
         const files = readdirSync(path.join(basePath, 'userlibs')).filter(file => file.endsWith('decls'));
         const paths = files.map(file => path.join(basePath, 'userlibs', file));
@@ -148,7 +149,7 @@ function loadUserLibs(): bb.DeclParseResult {
                             kind: 'param',
                             tag: maybe_tag,
                             uri: uri
-                        })
+                        });
                         if (toker.curr() != ',') break;
                         toker.next();
                     }
@@ -202,10 +203,20 @@ export function initializeContext() {
 
 export function updateContext(document: vscode.TextDocument) {
     if (document.languageId == 'blitz3d') {
-        parsed = parser.parse(document.getText(), document.uri);
-        analyzed = analyzer.analyze(document.getText(), document.uri, parsed);
+        if (parser) {
+            parsed = parser.parse(document.getText(), document.uri);
+        } else {
+            parser = new BlitzParser(document.getText(), document.uri);
+            parsed = parser.getResults();
+        }
+        if (analyzer) {
+            analyzed = analyzer.analyze(document.getText(), document.uri, parsed);
+        } else {
+            analyzer = new BlitzAnalyzer(document.getText(), document.uri, parsed);
+            analyzed = analyzer.getResults();
+        }
     } else if (document.languageId == 'blitz3d-decls') {
-
+        loadUserLibs();
     }
     for (const [uri, diagnostics] of parsed.diagnostics) {
         syntaxErrors.set(uri, diagnostics);
@@ -223,10 +234,23 @@ export function updateUserLibs() {
     }
 }
 
+/**
+ * Get the include directory of the blitz program.
+ * The program is either specified in the launch config, or is the open file.
+ * @param uri The uri of the open bb file
+ * @returns the directory relative to which the program can include
+ */
 export function obtainWorkingDir(uri: vscode.Uri): string {
-    const wsfolders = vscode.workspace.workspaceFolders;
-    if (wsfolders && wsfolders.length == 1) {
-        return wsfolders[0].uri.path.substring(process.platform === 'win32' ? 1 : 0);
+    const config = vscode.workspace.getConfiguration('launch', uri);
+    const launchConfigs = config.get<any[]>("configurations")
+    if (!launchConfigs) return uri.path.substring(process.platform === 'win32' ? 1 : 0, uri.path.lastIndexOf('/'));
+    for (const launch of launchConfigs) {
+        if (launch.type == 'blitz3d' && launch.bbfile) {
+            if (path.isAbsolute(launch.bbfile)) return launch.bbfile;
+            const wsFolder = vscode.workspace.workspaceFolders?.find(folder => uri.path.startsWith(folder.uri.path));
+            const wspath = wsFolder?.uri.path.substring(process.platform === 'win32' ? 1 : 0, uri.path.lastIndexOf('/')) || '';
+            return path.join(wspath, launch.bbfile.substring(0, launch.bbfile.lastIndexOf('/')))
+        }
     }
     return uri.path.substring(process.platform === 'win32' ? 1 : 0, uri.path.lastIndexOf('/'));
 }

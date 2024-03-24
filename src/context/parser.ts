@@ -180,7 +180,7 @@ export class BlitzParser implements Parser {
                         this.uri = t_uri;
                     } catch (err) {
                         this.diagnostics.get(this.uri)?.push({
-                            message: 'Unable to open include file ' + infile,
+                            message: `Unable to open include file '${infilepath}'`,
                             range: new vscode.Range(start, this.toker.range().start),
                             severity: vscode.DiagnosticSeverity.Error
                         });

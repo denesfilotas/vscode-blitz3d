@@ -18,6 +18,7 @@ export interface Parser {
 export class BlitzParser implements Parser {
 
     uri: vscode.Uri;
+    workdir: string;
 
     bbdoc: {
         descLines: string[],
@@ -45,6 +46,7 @@ export class BlitzParser implements Parser {
 
         this.toker = new BlitzToker(intext);
         this.uri = uri;
+        this.workdir = obtainWorkingDir(uri);
         this.consts = [];
         this.structs = [];
         this.funcs = [];
@@ -86,6 +88,7 @@ export class BlitzParser implements Parser {
     parse(intext: string, uri: vscode.Uri): bb.ParseResult {
         this.toker = new BlitzToker(intext);
         this.uri = uri;
+        this.workdir = obtainWorkingDir(uri);
 
         this.consts = this.consts.filter(constant => constant.uri.path != uri.path);
         this.diagnostics.set(uri, []);
@@ -160,8 +163,7 @@ export class BlitzParser implements Parser {
                     const start = this.toker.range().start;
                     this.toker.next();
                     const infile = inc.substring(1, inc.length - 1).toLowerCase();
-                    const dir = obtainWorkingDir(this.uri);
-                    const infilepath = isAbsolute(infile) ? infile : join(dir, infile);
+                    const infilepath = isAbsolute(infile) ? infile : join(this.workdir, infile);
                     if (this.included.has(infilepath)) break;
                     let intext = '';
                     try {

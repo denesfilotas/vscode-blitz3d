@@ -14,6 +14,7 @@ export interface Analyzer {
 export class BlitzAnalyzer implements Analyzer {
 
     uri: vscode.Uri;
+    workdir: string;
 
     consts: bb.Variable[] = [];
     globals: bb.Variable[] = [];
@@ -36,6 +37,7 @@ export class BlitzAnalyzer implements Analyzer {
     constructor(intext: string, uri: vscode.Uri, parsed: bb.ParseResult) {
         this.toker = new BlitzToker(intext);
         this.uri = uri;
+        this.workdir = obtainWorkingDir(uri);
         this.consts = parsed.consts;
         this.globals = parsed.globals;
         this.arrayDecls = parsed.arrayDecls;
@@ -56,6 +58,7 @@ export class BlitzAnalyzer implements Analyzer {
     analyze(intext: string, uri: vscode.Uri, parsed: bb.ParseResult): bb.AnalyzeResult {
         this.toker = new BlitzToker(intext);
         this.uri = uri;
+        this.workdir = obtainWorkingDir(uri);
         this.consts = parsed.consts;
         this.globals = parsed.globals;
         this.arrayDecls = parsed.arrayDecls;
@@ -98,8 +101,7 @@ export class BlitzAnalyzer implements Analyzer {
                     const inc = this.toker.text();
                     this.toker.next();
                     const infile = inc.substring(1, inc.length - 1).toLowerCase();
-                    const dir = obtainWorkingDir(this.uri);
-                    const infilepath = isAbsolute(infile) ? infile : join(dir, infile);
+                    const infilepath = isAbsolute(infile) ? infile : join(this.workdir, infile);
                     if (this.included.has(infilepath)) break;
                     let intext = '';
                     try {

@@ -1,0 +1,64 @@
+{
+	"$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+	"name": "BlitzBasic",
+	"scopeName": "source.bbdoc",
+	"patterns": [
+		{
+			"captures": {
+				"1": {
+					"name": "keyword.other.documentation"
+				}
+			},
+			"name": "comment.block.documentation",
+			"match": "(;; ).*$"
+		},
+		{
+			"captures": {
+				"1": {
+					"name": "keyword.other.documentation"
+				},
+				"2": {
+					"name": "variable.parameter"
+				}
+			},
+			"name": "comment.block.documentation",
+			"match": "(;;param)\\s(\\w+)\\b.*$"
+		},
+		{
+			"captures": {
+				"1": {
+					"name": "keyword.other.documentation"
+				}
+			},
+			"name": "comment.block.documentation",
+			"match": "(;;author ).*$"
+		},
+		{
+			"captures": {
+				"1": {
+					"name": "keyword.other.documentation"
+				}
+			},
+			"name": "comment.block.documentation",
+			"match": "(;;return ).*$"
+		},
+		{
+			"captures": {
+				"1": {
+					"name": "keyword.other.documentation"
+				}
+			},
+			"name": "comment.block.documentation",
+			"match": "(;;since ).*$"
+		},
+		{
+			"captures": {
+				"1": {
+					"name": "punctuation.definition.comment.semi-colon.bb"
+				}
+			},
+			"match": "(;).*$",
+			"name": "comment.line.semi-colon.bb"
+		}
+	]
+}

@@ -4,6 +4,9 @@
     "scopeName": "source.decls",
     "patterns": [
         {
+            "include": "source.bbdoc"
+        },
+        {
             "match": "(?i)(.lib)\\s*(\\\"(.+)\\\")?",
             "captures": {
                 "1": {
@@ -24,28 +27,7 @@
                 "1": {
                     "patterns": [
                         {
-                            "match": "(?i)^\\s*(\\w+)\\s*(\\.|#|\\$|%)?\\s*\\((.*)\\)\\s*$",
-                            "captures": {
-                                "1": {
-                                    "name": "entity.name.function.decls"
-                                },
-                                "2": {
-                                    "name": "storage.type.decls.decls"
-                                },
-                                "3": {
-                                    "patterns": [
-                                        {
-                                            "match": "\\w+\\s*(\\.|#|\\$|%)?",
-                                            "name": "variable.name.decls",
-                                            "captures": {
-                                                "1": {
-                                                    "name": "storage.type.decls"
-                                                }
-                                            }
-                                        }
-                                    ]
-                                }
-                            }
+                            "include": "#fundef"
                         }
                     ]
                 },
@@ -59,6 +41,39 @@
                     "name": "entity.name.function"
                 }
             }
+        },
+        {
+            "include": "#fundef"
         }
-    ]
+    ],
+    "repository": {
+        "fundef": {
+            "patterns": [
+                {
+                    "match": "(?i)^\\s*(\\w+)\\s*(\\*|#|\\$|%)?\\s*\\((.*)\\)\\s*$",
+                    "captures": {
+                        "1": {
+                            "name": "entity.name.function.decls"
+                        },
+                        "2": {
+                            "name": "storage.type.decls.decls"
+                        },
+                        "3": {
+                            "patterns": [
+                                {
+                                    "match": "\\w+\\s*(\\*|#|\\$|%)?",
+                                    "name": "variable.name.decls",
+                                    "captures": {
+                                        "1": {
+                                            "name": "storage.type.decls"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            ]
+        }
+    }
 }

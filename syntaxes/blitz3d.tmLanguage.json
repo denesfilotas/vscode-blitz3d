@@ -4,7 +4,7 @@
 	"scopeName": "source.bb",
 	"patterns": [
 		{
-			"include": "#comments"
+			"include": "source.bbdoc"
 		},
 		{
 			"include": "#keywords"
@@ -14,67 +14,6 @@
 		}
 	],
 	"repository": {
-		"comments": {
-			"patterns": [
-				{
-					"captures": {
-						"1": {
-							"name": "keyword.other.documentation"
-						}
-					},
-					"name": "comment.block.documentation",
-					"match": "(;; ).*$"
-				},
-				{
-					"captures": {
-						"1": {
-							"name": "keyword.other.documentation"
-						},
-						"2": {
-							"name": "variable.parameter"
-						}
-					},
-					"name": "comment.block.documentation",
-					"match": "(;;param)\\s(\\w+)\\b.*$"
-				},
-				{
-					"captures": {
-						"1": {
-							"name": "keyword.other.documentation"
-						}
-					},
-					"name": "comment.block.documentation",
-					"match": "(;;author ).*$"
-				},
-				{
-					"captures": {
-						"1": {
-							"name": "keyword.other.documentation"
-						}
-					},
-					"name": "comment.block.documentation",
-					"match": "(;;return ).*$"
-				},
-				{
-					"captures": {
-						"1": {
-							"name": "keyword.other.documentation"
-						}
-					},
-					"name": "comment.block.documentation",
-					"match": "(;;since ).*$"
-				},
-				{
-					"captures": {
-						"1": {
-							"name": "punctuation.definition.comment.semi-colon.bb"
-						}
-					},
-					"match": "(;).*$",
-					"name": "comment.line.semi-colon.bb"
-				}
-			]
-		},
 		"keywords": {
 			"patterns": [{
 				"name": "keyword.control.bb",

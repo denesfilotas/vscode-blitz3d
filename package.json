@@ -55,6 +55,10 @@
                 "language": "blitz3d-decls",
                 "scopeName": "source.decls",
                 "path": "./syntaxes/decls.tmLanguage.json"
+            },
+            {
+                "scopeName": "source.bbdoc",
+                "path": "./syntaxes/bbdoc.tmLanguage.json"
             }
         ],
         "snippets": [

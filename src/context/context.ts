@@ -115,8 +115,8 @@ function loadUserLibs(): bb.DeclParseResult {
                     range: toker.range(),
                     severity: vscode.DiagnosticSeverity.Error
                 });
-                let name = toker.text();
-                let ident = name.toLowerCase();
+                const name = toker.text();
+                const ident = name.toLowerCase();
                 if (funcs.find(fun => fun.ident == ident)) diagnostics.push({
                     message: `Duplicate identifier '${name}'`,
                     range: toker.range(),
@@ -166,8 +166,6 @@ function loadUserLibs(): bb.DeclParseResult {
                         range: toker.range(),
                         severity: vscode.DiagnosticSeverity.Error
                     });
-                    name = toker.text();
-                    ident = name.toLowerCase();
                     toker.next();
                 }
                 funcs.push({

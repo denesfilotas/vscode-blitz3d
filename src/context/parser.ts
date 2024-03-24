@@ -56,7 +56,7 @@ export class BlitzParser implements Parser {
             returns: '',
             since: ''
         };
-
+        this.diagnostics.set(uri, []);
         this.parseStmtSeq('prog');
 
         if (this.toker.curr() != 'eof') this.expecting('<eof>');
@@ -159,7 +159,9 @@ export class BlitzParser implements Parser {
                     const start = this.toker.range().start;
                     this.toker.next();
                     const infile = inc.substring(1, inc.length - 1).toLowerCase();
-                    const infilepath = isAbsolute(infile) ? infile : join(this.uri.path.substring(process.platform === 'win32' ? 1 : 0, this.uri.path.lastIndexOf('/')), infile);
+                    //const infilepath = isAbsolute(infile) ? infile : join(this.uri.path.substring(process.platform === 'win32' ? 1 : 0, this.uri.path.lastIndexOf('/')), infile);
+                    const dir = obtainWorkingDir(this.uri);
+                    const infilepath = isAbsolute(infile) ? infile : join(dir, infile);
                     if (this.included.has(infilepath)) break;
                     let intext = '';
                     try {
@@ -1248,4 +1250,12 @@ function checkForArithmeticErrors(c: string, lhs: bb.Expression, rhs: bb.Express
             severity: vscode.DiagnosticSeverity.Warning
         });
     }
+}
+
+function obtainWorkingDir(uri: vscode.Uri): string {
+    const wsfolders = vscode.workspace.workspaceFolders;
+    if (wsfolders && wsfolders.length == 1) {
+        return wsfolders[0].uri.path.substring(1);
+    }
+    return uri.path.substring(1, uri.path.lastIndexOf('/'));
 }

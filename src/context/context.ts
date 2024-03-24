@@ -222,3 +222,11 @@ export function updateUserLibs() {
         userLibErrors.set(uri, diagnostics);
     }
 }
+
+export function obtainWorkingDir(uri: vscode.Uri): string {
+    const wsfolders = vscode.workspace.workspaceFolders;
+    if (wsfolders && wsfolders.length == 1) {
+        return wsfolders[0].uri.path.substring(process.platform === 'win32' ? 1 : 0);
+    }
+    return uri.path.substring(process.platform === 'win32' ? 1 : 0, uri.path.lastIndexOf('/'));
+}

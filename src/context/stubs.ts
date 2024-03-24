@@ -2,7 +2,7 @@ import { createWriteStream, existsSync, readdirSync, readFileSync } from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { isBlitzKeyword, removeType } from '../util/functions';
-import { BlitzStub } from "../util/types";
+import { BlitzStub } from '../util/types';
 import { blitzpath } from './context';
 
 export let stubs: BlitzStub[];

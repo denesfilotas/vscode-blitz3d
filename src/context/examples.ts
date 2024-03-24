@@ -2,7 +2,7 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 
 import { readdirSync } from 'fs';
-import { blitzpath } from "./context";
+import { blitzpath } from './context';
 
 /**
  * Show folder contents to open .bb samples from

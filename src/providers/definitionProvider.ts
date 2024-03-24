@@ -1,7 +1,8 @@
 import * as vscode from 'vscode';
-import { analyzed, parsed, userLibs } from '../context/context';
+import { analyzed, obtainWorkingDir, parsed, userLibs } from '../context/context';
 import { isInString, startOfComment } from '../util/functions';
 import { getFieldFromNestedExpression } from './hoverProvider';
+import { join } from 'path';
 
 export default class DefinitionProvider implements vscode.DefinitionProvider {
     provideDefinition(document: vscode.TextDocument, position: vscode.Position, token: vscode.CancellationToken): vscode.ProviderResult<vscode.Definition | vscode.LocationLink[]> {
@@ -11,7 +12,20 @@ export default class DefinitionProvider implements vscode.DefinitionProvider {
         if (document.lineAt(position.line).text[position.character] == ' ') return;
         const line = document.lineAt(position).text;
         // not in strings
-        if (isInString(line, position.character)) return;
+        if (isInString(line, position.character)) {
+            const lineText = document.lineAt(position.line).text.toLowerCase();
+            let startOfString, endOfString;
+            for (startOfString = position.character; lineText[startOfString] != '"'; startOfString--);
+            if (startOfString < 7) return;
+            if (lineText.substring(0, startOfString - 1).trimEnd().endsWith('include')) {
+                for (endOfString = position.character; endOfString < lineText.length && lineText[endOfString] != '"'; endOfString++);
+                return [{
+                    originSelectionRange: new vscode.Range(position.line, startOfString + 1, position.line, endOfString),
+                    targetRange: new vscode.Range(0, 0, 0, 0),
+                    targetUri: vscode.Uri.file(join(obtainWorkingDir(document.uri), document.lineAt(position).text.substring(startOfString + 1, endOfString)))
+                }];
+            } else return;
+        }
         // not in comments
         if (position.character >= startOfComment(line)) return;
 

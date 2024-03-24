@@ -641,6 +641,23 @@ export class BlitzParser implements Parser {
         this.toker.next();
         const range = this.toker.range();
         const ident = this.parseIdent();
+        const existingType = this.structs.find(t => t.ident == ident.ident);
+        if (existingType) {
+            this.diagnostics.get(this.uri)?.push({
+                message: `Duplicate type '${ident.name}'`,
+                range: range,
+                severity: vscode.DiagnosticSeverity.Error,
+                relatedInformation: [
+                    {
+                        location: {
+                            uri: existingType.uri,
+                            range: existingType.declarationRange
+                        },
+                        message: 'Existing type is declared here'
+                    }
+                ]
+            })
+        }
         while (this.toker.curr() == '\n') this.toker.next();
         const fields: bb.Variable[] = [];
         while (this.toker.curr() == 'field') {
@@ -649,7 +666,29 @@ export class BlitzParser implements Parser {
             do {
                 this.toker.next();
                 const field = this.parseVarDecl('field', false, start);
-                lineFields.push(field);
+                const existingField = fields.find(f => f.ident == field.ident);
+                if (existingField) this.diagnostics.get(this.uri)?.push({
+                    message: `Duplicate field '${field.name}'`,
+                    range: field.range,
+                    severity: vscode.DiagnosticSeverity.Error,
+                    relatedInformation: [
+                        {
+                            location: {
+                                uri: existingField.uri,
+                                range: existingField.range
+                            },
+                            message: 'Existing field declaration is here'
+                        },
+                        {
+                            location: {
+                                uri: field.uri,
+                                range: field.range
+                            },
+                            message: 'Trying to re-declare here'
+                        }
+                    ]
+                });
+                else lineFields.push(field);
             } while (this.toker.curr() == ',');
             if (this.toker.text().startsWith(';')) {
                 for (const field of lineFields) field.description = this.toker.text().substring(1).trim();

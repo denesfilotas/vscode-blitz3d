@@ -644,12 +644,7 @@ export class BlitzAnalyzer implements Analyzer {
             do {
                 this.toker.next();
                 const field = this.parseVarDecl('field', false, context, range.start);
-                if (fields.find(f => f.ident == field.ident)) this.diagnostics.get(this.uri)?.push({
-                    message: `Duplicate field '${field.name}'`,
-                    range: field.range,
-                    severity: vscode.DiagnosticSeverity.Error
-                });
-                lineFields.push(field);
+                if (!fields.find(f => f.ident == field.ident)) lineFields.push(field);
             } while (this.toker.curr() == ',');
             if (this.toker.text().startsWith(';')) {
                 for (const field of lineFields) field.description = this.toker.text().substring(1).trim();

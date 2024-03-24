@@ -115,7 +115,7 @@ export class BlitzAnalyzer implements Analyzer {
                         this.parseStmtSeq(scope, context);
                         this.toker = t_toker;
                         this.uri = t_uri;
-                    } catch (err) { console.error(err); }
+                    } catch (err) { /*console.error(err);*/ }
                     break;
                 case 'ident':
                     {

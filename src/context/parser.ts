@@ -146,7 +146,7 @@ export class BlitzParser implements Parser {
                     this.bbdoc.since = bbdoc.substring(8);
                 } else if (bbdoc.startsWith(';;deprecated')) {
                     this.bbdoc.deprecated = bbdoc.substring(12).trim();
-                } else if (bbdoc.startsWith(';;')) {
+                } else if (bbdoc.startsWith(';;') && !bbdoc.startsWith(';;todo')) {
                     this.diagnostics.get(this.uri)?.push({
                         message: `Invalid BBDoc`,
                         range: this.toker.range(),

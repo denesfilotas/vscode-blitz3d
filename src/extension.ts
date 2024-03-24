@@ -38,8 +38,8 @@ export function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(vscode.workspace.onDidSaveTextDocument(compile));
     context.subscriptions.push(vscode.workspace.onDidChangeTextDocument(e => {
         if (e.document.languageId == 'blitz3d') {
-            updateTodos(e.document);
             updateContext(e.document);
+            updateTodos(e.document);
         } else if (e.document.languageId == 'blitz3d-decls') {
             updateUserLibs();
         }
@@ -49,6 +49,7 @@ export function activate(context: vscode.ExtensionContext) {
         if (document.languageId == 'blitz3d') {
             initializeContext();
             updateContext(document);
+            updateTodos(document);
         } else if (document.languageId == 'blitz3d-decls') {
             initializeContext();
         }
@@ -58,6 +59,7 @@ export function activate(context: vscode.ExtensionContext) {
         if (editor?.document.languageId == 'blitz3d') {
             initializeContext();
             updateContext(editor.document);
+            updateTodos(editor.document);
         }
     }));
 

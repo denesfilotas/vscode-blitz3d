@@ -1274,13 +1274,7 @@ export class BlitzAnalyzer implements Analyzer {
                     };
                 } else {
                     const variable = this.parseVar(false, context, t, tag, pos);
-                    const illegal = isIllegalTypeConversion(variable.tag || '%', tag || '%');
-                    if (tag && illegal) this.diagnostics.get(this.uri)?.push({
-                        message: `Variable of type '${variable.tag || '%'}' ${illegal == 1 ? 'should not' : 'cannot'} be converted to type '${tag}'`,
-                        range: variable.range,
-                        severity: illegal == 1 ? vscode.DiagnosticSeverity.Warning : vscode.DiagnosticSeverity.Error
-                    });
-                    if (!tag || (tag == '%' && variable.tag == '?')) tag = variable.tag || '%';
+                    if (!tag || (tag == '%' && variable.tag == '?') || variable.kind == 'field') tag = variable.tag || '%';
                     if (['?', '%', '#', '$'].includes(tag)) result = { ...variable, kind: tag as bb.ExpressionKind };
                     else result = { ...variable, kind: '.', type: tag };
                 }

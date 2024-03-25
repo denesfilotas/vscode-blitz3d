@@ -616,7 +616,6 @@ export class BlitzAnalyzer implements Analyzer {
         this.toker.next();
         const locals = [...params];
         this.parseStmtSeq('fun', locals);
-        locals.shift();
         const declRangeEnd = this.toker.range().end;
         this.toker.next();
         this.funtag = '';

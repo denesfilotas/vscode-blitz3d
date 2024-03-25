@@ -21,9 +21,9 @@ export let analyzed: bb.AnalyzeResult;
 
 export function updateBlitzPath(notify: boolean) {
     const config: string | undefined = vscode.workspace.getConfiguration('blitz3d.installation').get('BlitzPath');
-    blitzpath = config || env['BLITZPATH'] || '';
+    blitzpath = config || env['blitzpath'] || '';
     blitzCmd = blitzpath.length > 0 ? '"' + path.join(blitzpath, 'bin', process.platform === 'win32' ? 'blitzcc.exe' : 'blitzcc') + '"' : 'blitzcc';
-    if (blitzpath.length > 0) env['BLITZPATH'] = blitzpath;
+    if (blitzpath.length > 0) env['blitzpath'] = blitzpath;
     cp.exec(blitzCmd, env, (err, stdout, stderr) => {
         if (err) showErrorOnCompile(stdout, stderr);
         else if (notify) vscode.window.showInformationMessage('BlitzPath updated.');

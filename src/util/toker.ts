@@ -207,8 +207,7 @@ export class DeclToker {
             if (this.position >= this.input.length) return this._curr = 'eof';
             if (this.input[this.position] == '\n') this.linestart = this.position;
             if (this.input[++this.position] != ';') break;
-            this._text = ';';
-            while (this.position < this.input.length && this.input[++this.position] != '\n') this._text += this.input[this.position];
+            while (this.position < this.input.length && this.input[this.position + 1] != '\n') this._text += this.input[this.position++];
             return this._curr = 'comment';
         }
         if (isalpha(this.input[this.position])) {

@@ -707,7 +707,7 @@ export class BlitzAnalyzer implements Analyzer {
         for (let e, pos = 0; e = this.parseExpr(context); pos++) {
             if (fun && pos < fun.params.length) {
                 const exprtag = e.kind.replace('.', e.type!) || '%';
-                const paramtag = fun.params[pos].tag;
+                const paramtag = fun.params[pos].tag || '%';
                 const illegal = isIllegalTypeConversion(exprtag, paramtag);
                 if (illegal) {
                     this.diagnostics.get(this.uri)?.push({
@@ -722,11 +722,14 @@ export class BlitzAnalyzer implements Analyzer {
             this.toker.next();
             optional = false;
         }
-        if (fun && expressions.length != fun.params.length) this.diagnostics.get(this.uri)?.push({
-            message: `Number of parameters is incorrect: expected ${fun.params.length}, got ${expressions.length}`,
-            range: new vscode.Range(paramStart, this.toker.range().start),
-            severity: vscode.DiagnosticSeverity.Error
-        });
+        if (fun) {
+            const minParams = fun.params.filter(param => param.value === undefined).length;
+            if (expressions.length > fun.params.length || expressions.length < minParams) this.diagnostics.get(this.uri)?.push({
+                message: `Number of parameters is incorrect: expected ${fun.params.length != minParams ? `${minParams}-${fun.params.length}` : minParams}, got ${expressions.length}`,
+                range: new vscode.Range(paramStart, this.toker.range().start),
+                severity: vscode.DiagnosticSeverity.Error
+            });
+        }
         return expressions;
     }
 

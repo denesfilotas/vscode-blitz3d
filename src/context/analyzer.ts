@@ -706,10 +706,10 @@ export class BlitzAnalyzer implements Analyzer {
         let optional = true;
         for (let e, pos = 0; e = this.parseExpr(context); pos++) {
             if (fun && pos < fun.params.length) {
-                const exprtag = e.kind.replace('.', e.type!) || '%';
+                const exprtag = e.kind.replace('.', e.type ?? '');
                 const paramtag = fun.params[pos].tag || '%';
                 const illegal = isIllegalTypeConversion(exprtag, paramtag);
-                if (illegal) {
+                if (exprtag && illegal) {
                     this.diagnostics.get(this.uri)?.push({
                         message: `Expression of type '${exprtag}' ${illegal == 1 ? 'should not' : 'cannot'} be implicitly converted to type '${paramtag}'`,
                         range: e.range,

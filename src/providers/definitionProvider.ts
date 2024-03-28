@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import { analyzed, obtainWorkingDir, parsed, userLibs } from '../context/context';
 import { isInString, startOfComment } from '../util/functions';
 import { getFieldFromNestedExpression } from './hoverProvider';
-import { join } from 'path';
+import { isAbsolute, join } from 'path';
 
 export default class DefinitionProvider implements vscode.DefinitionProvider {
     provideDefinition(document: vscode.TextDocument, position: vscode.Position, token: vscode.CancellationToken): vscode.ProviderResult<vscode.Definition | vscode.LocationLink[]> {
@@ -19,10 +19,11 @@ export default class DefinitionProvider implements vscode.DefinitionProvider {
             if (startOfString < 7) return;
             if (lineText.substring(0, startOfString - 1).trimEnd().endsWith('include')) {
                 for (endOfString = position.character; endOfString < lineText.length && lineText[endOfString] != '"'; endOfString++);
+                const inpath = document.lineAt(position).text.substring(startOfString + 1, endOfString);
                 return [{
                     originSelectionRange: new vscode.Range(position.line, startOfString + 1, position.line, endOfString),
                     targetRange: new vscode.Range(0, 0, 0, 0),
-                    targetUri: vscode.Uri.file(join(obtainWorkingDir(document.uri), document.lineAt(position).text.substring(startOfString + 1, endOfString)))
+                    targetUri: vscode.Uri.file(isAbsolute(inpath) ? inpath : join(obtainWorkingDir(document.uri), inpath))
                 }];
             } else return;
         }

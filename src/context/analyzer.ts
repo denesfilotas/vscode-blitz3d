@@ -128,7 +128,8 @@ export class BlitzAnalyzer implements Analyzer {
                             severity: vscode.DiagnosticSeverity.Error
                         });
                         if (!this.arrayDecls.has(ident.ident) && this.toker.curr() != '=' && this.toker.curr() != '\\' && this.toker.curr() != '[') {
-                            if (!isBuiltinBlitzFunction(ident.ident) && !this.funcs.concat(userLibs).find(fun => fun.ident == ident.ident)) this.diagnostics.get(this.uri)?.push({
+                            const fun = this.funcs.concat(userLibs).find(fun => fun.ident == ident.ident);
+                            if (!isBuiltinBlitzFunction(ident.ident) && !fun) this.diagnostics.get(this.uri)?.push({
                                 message: `Unknown function '${ident.name}'`,
                                 range: pos,
                                 severity: vscode.DiagnosticSeverity.Error
@@ -144,19 +145,24 @@ export class BlitzAnalyzer implements Analyzer {
                                 }
                                 if (isTerm(this.toker.lookAhead(++k))) {
                                     this.toker.next();
-                                    this.parseExprSeq(context);
+                                    this.parseExprSeq(context, fun);
                                     this.toker.next();
                                 } else {
-                                    this.parseExprSeq(context);
+                                    this.parseExprSeq(context, fun);
                                 }
                             } else {
-                                this.parseExprSeq(context);
+                                this.parseExprSeq(context, fun);
                             }
                         } else {
                             const variable = this.parseVar(true, context, ident, tag, pos);
                             const oldVar = this.arrayDecls.get(variable.ident) ?? context.concat(this.globals, this.consts).find(local => local.ident == variable.ident);
                             const vartag = variable.tag || oldVar?.tag || '%';
                             if (!oldVar && variable.kind != 'field' && variable.kind != 'array') context.push(variable);
+                            if (oldVar?.constant) this.diagnostics.get(this.uri)?.push({
+                                message: `Constant variable ${oldVar.name} cannot be assigned to`,
+                                range: this.toker.range(),
+                                severity: vscode.DiagnosticSeverity.Error
+                            });
                             this.toker.next();
                             const expression = this.parseExpr(context);
                             const exprtag = expression?.kind.replace('.', expression.type ?? '') || '%';
@@ -166,7 +172,7 @@ export class BlitzAnalyzer implements Analyzer {
                                 range: expression?.range ?? pos,
                                 severity: illegal == 1 ? vscode.DiagnosticSeverity.Warning : vscode.DiagnosticSeverity.Error
                             });
-                            if (!tag || (tag == '%' && exprtag == '?')) variable.tag = exprtag;
+                            if ((!tag || tag == '%') && exprtag == '?') variable.tag = exprtag;
                         }
                     }
                     break;
@@ -299,16 +305,19 @@ export class BlitzAnalyzer implements Analyzer {
                         const expr = this.parseExpr(context);
                         if (expr?.kind) {
                             const exprtag = expr.kind.replace('.', expr.type ?? '');
-                            if (exprtag && expr.kind != '?' && !this.funtag) this.diagnostics.get(this.uri)?.push({
-                                message: `Return type '${exprtag}' should be indicated at function definition`,
-                                range: expr.range,
-                                severity: exprtag == '%' ? vscode.DiagnosticSeverity.Warning : vscode.DiagnosticSeverity.Error
-                            });
+                            if (exprtag && expr.kind != '?' && !this.funtag) {
+                                const illegal = isIllegalTypeConversion(exprtag, '%');
+                                this.diagnostics.get(this.uri)?.push({
+                                    message: `Return type '${exprtag}' ${illegal == 2 ? 'must' : 'should'} be indicated at function definition`,
+                                    range: expr.range,
+                                    severity: illegal < 2 ? vscode.DiagnosticSeverity.Warning : vscode.DiagnosticSeverity.Error
+                                });
+                            }
                             if (exprtag && this.funtag) {
                                 const illegal = isIllegalTypeConversion(exprtag, this.funtag);
                                 if (illegal) {
                                     this.diagnostics.get(this.uri)?.push({
-                                        message: `Function with return type '${this.funtag || '%'}' ${illegal == 1 ? 'should not' : 'cannot'} return type '${exprtag}'`,
+                                        message: `Expression of type '${exprtag}' ${illegal == 1 ? 'should not' : 'cannot'} be implicitly converted to type '${this.funtag || '%'}'`,
                                         range: expr.range,
                                         severity: illegal == 1 ? vscode.DiagnosticSeverity.Warning : vscode.DiagnosticSeverity.Error
                                     });
@@ -461,7 +470,7 @@ export class BlitzAnalyzer implements Analyzer {
         }
         const illegal = isIllegalTypeConversion(variable?.tag || '%', tag || '%');
         if (tag && variable && illegal) this.diagnostics.get(this.uri)?.push({
-            message: `Variable of type '${variable.tag || '%'}' ${illegal == 1 ? 'should not' : 'cannot'} be converted to type '${tag}'`,
+            message: `Variable of type '${variable.tag || '%'}' ${illegal == 1 ? 'should not' : 'cannot'} be implicitly converted to type '${tag}'`,
             range: range!,
             severity: illegal == 1 ? vscode.DiagnosticSeverity.Warning : vscode.DiagnosticSeverity.Error
         });
@@ -691,15 +700,33 @@ export class BlitzAnalyzer implements Analyzer {
         };
     }
 
-    private parseExprSeq(context: bb.Variable[]) {
+    private parseExprSeq(context: bb.Variable[], fun?: bb.Function) {
         const expressions = [];
+        const paramStart = this.toker.range().start;
         let optional = true;
-        for (let e; e = this.parseExpr(context);) {
+        for (let e, pos = 0; e = this.parseExpr(context); pos++) {
+            if (fun && pos < fun.params.length) {
+                const exprtag = e.kind.replace('.', e.type!) || '%';
+                const paramtag = fun.params[pos].tag;
+                const illegal = isIllegalTypeConversion(exprtag, paramtag);
+                if (illegal) {
+                    this.diagnostics.get(this.uri)?.push({
+                        message: `Expression of type '${exprtag}' ${illegal == 1 ? 'should not' : 'cannot'} be implicitly converted to type '${paramtag}'`,
+                        range: e.range,
+                        severity: illegal == 1 ? vscode.DiagnosticSeverity.Warning : vscode.DiagnosticSeverity.Error
+                    });
+                }
+            }
             expressions.push(e);
             if (this.toker.curr() != ',') break;
             this.toker.next();
             optional = false;
         }
+        if (fun && expressions.length != fun.params.length) this.diagnostics.get(this.uri)?.push({
+            message: `Number of parameters is incorrect: expected ${fun.params.length}, got ${expressions.length}`,
+            range: new vscode.Range(paramStart, this.toker.range().start),
+            severity: vscode.DiagnosticSeverity.Error
+        });
         return expressions;
     }
 
@@ -1256,7 +1283,7 @@ export class BlitzAnalyzer implements Analyzer {
                     // const stub = stubs.find(s => s.name.toLowerCase() == t.ident);
                     // TODO embed return types in stubs
                     this.toker.next();
-                    this.parseExprSeq(context);
+                    this.parseExprSeq(context, fun);
                     this.toker.next();
                     if ((!tag && fun) || (tag == '%' && fun?.tag == '?')) tag = fun.tag;
                     if (['?', '%', '#', '$'].includes(tag)) result = {

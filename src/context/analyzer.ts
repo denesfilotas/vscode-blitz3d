@@ -535,7 +535,7 @@ export class BlitzAnalyzer implements Analyzer {
         const range = this.toker.range();
         const ident = this.parseIdent();
         const trange = this.toker.range();
-        const tag = this.parseTypeTag() || '%';
+        let tag = this.parseTypeTag() || '%';
         if (!'%#$'.includes(tag) && !this.structs.find(type => type.ident == tag)) this.diagnostics.get(this.uri)?.push({
             message: `Unknown type '${tag}'`,
             range: new vscode.Range(trange.end, this.toker.range().start),
@@ -567,7 +567,7 @@ export class BlitzAnalyzer implements Analyzer {
                     range: expr.range,
                     severity: illegal == 1 ? vscode.DiagnosticSeverity.Warning : vscode.DiagnosticSeverity.Error
                 });
-                // if (!tag) tag = expr?.kind ?? '%';
+                if ((!tag || tag == '%') && exprtag == '?') tag = '?'
             } else if (constant) {
                 // this.exception('constants must be initialized');
             }
@@ -829,7 +829,7 @@ export class BlitzAnalyzer implements Analyzer {
             const rhs = this.parseExpr3(context);
             let value: boolean | undefined;
             if (lhs.value != undefined && rhs && rhs.value != undefined) {
-                checkForArithmeticErrors(c, lhs, rhs, this.diagnostics.get(this.uri)!);
+                if (c != '=') checkForArithmeticErrors(c, lhs, rhs, this.diagnostics.get(this.uri)!);
                 switch (c) {
                     case '<':
                         value = lhs.value < rhs.value;
@@ -1332,7 +1332,7 @@ function checkForArithmeticErrors(c: string, lhs: bb.Expression, rhs: bb.Express
         });
     } else if (lhs.kind == '?') {
         diagnostics.push({
-            message: 'Converting logical value to numeric',
+            message: `Converting logical value to numeric (${rhs.kind})`,
             range: lhs.range,
             severity: vscode.DiagnosticSeverity.Warning
         });
@@ -1345,7 +1345,7 @@ function checkForArithmeticErrors(c: string, lhs: bb.Expression, rhs: bb.Express
         });
     } else if (rhs.kind == '?') {
         diagnostics.push({
-            message: 'Converting logical value to numeric',
+            message: `Converting logical value to numeric (${lhs.kind})`,
             range: rhs.range,
             severity: vscode.DiagnosticSeverity.Warning
         });

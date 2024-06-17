@@ -72,5 +72,14 @@
             "\t$0",
             "End Function"
         ]
+    },
+    "Code Block": {
+        "prefix": "block",
+        "body": [
+            ";[Block]"
+            "$0",
+            ";[End Block]"
+        ],
+        "description": "Create a code block"
     }
 }

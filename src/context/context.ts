@@ -174,7 +174,7 @@ function loadUserLibs(): bb.DeclParseResult {
                     range: toker.range(),
                     severity: vscode.DiagnosticSeverity.Error
                 });
-                const tag = '%#$'.includes(toker.next()) ? toker.curr() : '.null';
+                const tag = '%#$'.includes(toker.next()) ? toker.curr() : 'null';
                 if ('%#$'.includes(tag)) toker.next();
 
                 if (toker.curr() != '(') diagnostics.push({

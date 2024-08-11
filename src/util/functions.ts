@@ -92,7 +92,8 @@ export function isIllegalTypeConversion(source: string, dest: string): number {
                 case '?':
                 case '%':
                 case '#':
-                case '$': return 0;
+                case '$':
+                case '*': return 0;
                 default: return 2;
             }
         case '%':
@@ -100,7 +101,8 @@ export function isIllegalTypeConversion(source: string, dest: string): number {
                 case '?': return 1;
                 case '%':
                 case '#':
-                case '$': return 0;
+                case '$':
+                case '*': return 0;
                 default: return 2;
             }
         case '#':
@@ -120,7 +122,7 @@ export function isIllegalTypeConversion(source: string, dest: string): number {
                 default: return 2;
             }
         case 'null':
-            return '?%#$'.includes(dest) ? 2 : 0;
+            return '?%#$*'.includes(dest) ? 2 : 0;
         default:
             return source == dest ? 0 : 2;
     }

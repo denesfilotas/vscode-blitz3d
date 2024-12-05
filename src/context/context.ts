@@ -5,9 +5,9 @@ import { env } from 'process';
 import * as vscode from 'vscode';
 import { showErrorOnCompile } from '../debug/compilation';
 import { DeclToker } from '../util/toker';
-import { Analyzer, BlitzAnalyzer } from './analyzer';
+import { Analyzer, getAnalyzer } from './analyzers/analyzer';
 import { semanticErrors, syntaxErrors, userLibErrors } from './diagnostics';
-import { BlitzParser, Parser } from './parser';
+import { Parser, getParser } from './parsers/parser';
 import * as bb from './types';
 import { removeType } from '../util/functions';
 
@@ -42,7 +42,7 @@ export function createLaunchContext() {
         if (parser) {
             parsed = parser.parse(bbtext, bburi);
         } else {
-            parser = new BlitzParser(bbtext, bburi);
+            parser = getParser(bbtext, bburi);
             parsed = parser.getResults();
         }
         for (const [uri, diagnostics] of parsed.diagnostics) {
@@ -51,7 +51,7 @@ export function createLaunchContext() {
         if (analyzer) {
             analyzed = analyzer.analyze(bbtext, bburi, parsed);
         } else {
-            analyzer = new BlitzAnalyzer(bbtext, bburi, parsed);
+            analyzer = getAnalyzer(bbtext, bburi, parsed);
             analyzed = analyzer.getResults();
         }
         for (const [uri, diagnostics] of analyzed.diagnostics) {
@@ -270,7 +270,7 @@ export function updateContext(document: vscode.TextDocument) {
         if (parser) {
             parsed = parser.parse(document.getText(), document.uri);
         } else {
-            parser = new BlitzParser(document.getText(), document.uri);
+            parser = getParser(document.getText(), document.uri);
             parsed = parser.getResults();
         }
         for (const [uri, diagnostics] of parsed.diagnostics) {
@@ -279,7 +279,7 @@ export function updateContext(document: vscode.TextDocument) {
         if (analyzer) {
             analyzed = analyzer.analyze(document.getText(), document.uri, parsed);
         } else {
-            analyzer = new BlitzAnalyzer(document.getText(), document.uri, parsed);
+            analyzer = getAnalyzer(document.getText(), document.uri, parsed);
             analyzed = analyzer.getResults();
         }
         for (const [uri, diagnostics] of analyzed.diagnostics) {

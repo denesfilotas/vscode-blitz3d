@@ -1,21 +1,13 @@
 import { readFileSync } from 'fs';
 import { isAbsolute, join } from 'path';
 import * as vscode from 'vscode';
-import { removeType } from '../util/functions';
-import { BlitzToker } from '../util/toker';
-import * as bb from './types';
-import { obtainWorkingDir } from './context';
+import { isTerm, removeType } from '../../util/functions';
+import { BlitzToker } from '../../util/toker';
+import { obtainWorkingDir } from '../context';
+import * as bb from '../types';
+import { Parser } from './parser';
 
-function isTerm(c: string | undefined): boolean {
-    return !c || c == ':' || c == '\n';
-}
-
-export interface Parser {
-    parse(intext: string, uri: vscode.Uri): bb.ParseResult;
-    getResults(): bb.ParseResult;
-}
-
-export class BlitzParser implements Parser {
+export class Blitz117Parser implements Parser {
 
     uri: vscode.Uri;
     workdir: string;
@@ -36,7 +28,7 @@ export class BlitzParser implements Parser {
     datas: bb.Data[] = [];
     labels: bb.Token[] = [];
     diagnostics: Map<vscode.Uri, vscode.Diagnostic[]> = new Map<vscode.Uri, vscode.Diagnostic[]>();
-
+    dialect: 'classic' | 'secure' | 'modern' = 'classic';
     arrayDecls: Map<string, bb.DimmedArray> = new Map<string, bb.DimmedArray>();
     included: Set<string> = new Set<string>();
 
@@ -69,7 +61,8 @@ export class BlitzParser implements Parser {
         this.diagnostics.get(this.uri)?.push({
             range: this.toker.range(),
             message: `Syntax error: expecting ${thing}, got ${this.toker.curr().replace('\n', '<eol>')}`,
-            severity: vscode.DiagnosticSeverity.Error
+            severity: vscode.DiagnosticSeverity.Error,
+            source: 'v1.118 Parser'
         });
     }
 
@@ -77,7 +70,8 @@ export class BlitzParser implements Parser {
         this.diagnostics.get(this.uri)?.push({
             range: this.toker.range(),
             message: 'Syntax error: ' + message,
-            severity: vscode.DiagnosticSeverity.Error
+            severity: vscode.DiagnosticSeverity.Error,
+            source: 'v1.118 Parser'
         });
     }
 
@@ -120,6 +114,36 @@ export class BlitzParser implements Parser {
     }
 
     parseStmtSeq(scope: 'prog' | 'block' | 'fun' | 'line') {
+        const prevDialect = this.dialect;
+
+        if (scope == 'prog') {
+            while (this.toker.curr() == '\n') this.toker.next();
+            if (this.toker.curr() == 'dialect') {
+                if (this.toker.next() != 'stringconst') {
+                    this.expecting('dialect identifier');
+                } else {
+                    const name = this.toker.text();
+                    switch (name) {
+                        case '"classic"':
+                            this.dialect = 'classic';
+                            break;
+                        case '"secure"':
+                            this.dialect = 'secure';
+                            break;
+                        case '"modern"':
+                            this.dialect = 'modern';
+                            break;
+                        default:
+                            this.dialect = 'classic';
+                            this.exception(`unrecognized dialect '${name}'`);
+                    }
+                }
+                this.toker.next();
+            } else {
+                this.dialect = 'classic';
+            }
+        }
+
         for (; ;) {
             while (this.toker.curr() == ':' || (scope != 'line' && this.toker.curr() == '\n')) {
                 const bbdoc = this.toker.text();
@@ -190,7 +214,8 @@ export class BlitzParser implements Parser {
                     {
                         const ident = this.parseIdent();
                         const tag = this.parseTypeTag();
-                        if (!this.arrayDecls.has(ident.ident) && this.toker.curr() != '=' && this.toker.curr() != '\\' && this.toker.curr() != '[') {
+                        const isDot = (this.dialect == 'modern' && this.toker.curr() == '.') || (this.dialect != 'modern' && this.toker.curr() == '\\');
+                        if (!this.arrayDecls.has(ident.ident) && this.toker.curr() != '=' && !isDot && this.toker.curr() != '[') {
                             let exprs;
                             if (this.toker.curr() == '(') {
                                 let nest = 1, k;
@@ -465,6 +490,7 @@ export class BlitzParser implements Parser {
                     break;
             }
         }
+        this.dialect = prevDialect;
     }
 
     parseTypeTag(): string {
@@ -478,15 +504,15 @@ export class BlitzParser implements Parser {
             case '$':
                 this.toker.next();
                 return '$';
-            case '.':
-                this.toker.next();
-                return this.parseIdent().ident;
-            default:
-                return '';
         }
+        if ((this.dialect == 'modern' && this.toker.curr() == ':') || (this.dialect != 'modern' && this.toker.curr() == '.')) {
+            this.toker.next();
+            return this.parseIdent().ident;
+        }
+        return "";
     }
 
-    parseVar(ident?: bb.Ident, tag?: string): bb.Variable {
+    parseVar(ident?: bb.Ident, tag?: string, mustExist = true): bb.Variable {
         if (!ident && !tag) {
             ident = this.parseIdent();
             tag = this.parseTypeTag();
@@ -519,7 +545,7 @@ export class BlitzParser implements Parser {
         }
 
         for (; ;) {
-            if (this.toker.curr() == '\\') {
+            if ((this.dialect == 'modern' && this.toker.curr() == '.') || (this.dialect != 'modern' && this.toker.curr() == '\\')) {
                 this.toker.next();
                 this.parseIdent();
                 this.parseTypeTag();
@@ -621,7 +647,7 @@ export class BlitzParser implements Parser {
         this.toker.next();
         const locals = [...params];
         this.parseStmtSeq('fun');
-        if (this.toker.curr() != 'endfunction') this.expecting("'End Function'");
+        if (this.toker.curr() != 'endfunction' && this.toker.curr() != 'end') this.expecting("'End Function' or 'End'");
         const declRangeEnd = this.toker.range().end;
         this.toker.next();
         return {
@@ -656,7 +682,7 @@ export class BlitzParser implements Parser {
                         message: 'Existing type is declared here'
                     }
                 ]
-            })
+            });
         }
         while (this.toker.curr() == '\n') this.toker.next();
         const fields: bb.Variable[] = [];
@@ -1053,7 +1079,7 @@ export class BlitzParser implements Parser {
                 };
                 break;
             case 'object':
-                if (this.toker.next() == '.') this.toker.next();
+                if ((this.dialect == 'modern' && this.toker.next() == ':') || (this.dialect != 'modern' && this.toker.next() == '.')) this.toker.next();
                 t = this.parseIdent();
                 this.parseUniExpr(false);
                 result = {
@@ -1254,7 +1280,7 @@ export class BlitzParser implements Parser {
                         uri: this.uri
                     };
                 } else {
-                    result = { ...this.parseVar(ident, tag), kind: '.' };
+                    result = { ...this.parseVar(ident, tag, this.dialect != 'classic'), kind: '.' };
                 }
                 break;
             default:

@@ -31,7 +31,7 @@ function isalnum(ch: string): boolean {
     return '0123456789_abcdefghijklmnopqrstuvwxyz'.includes(ch.toLowerCase());
 }
 
-const keywords = ['dim', 'goto', 'gosub', 'return', 'exit', 'if', 'then', 'else', 'endif', 'end if', 'elseif', 'else if', 'while', 'wend', 'for', 'to', 'step', 'next', 'function', 'end function', 'type', 'end type', 'each', 'local', 'global', 'field', 'const', 'select', 'case', 'default', 'end select', 'repeat', 'until', 'forever', 'data', 'read', 'restore', 'abs', 'sgn', 'mod', 'pi', 'true', 'false', 'int', 'float', 'str', 'include', 'new', 'delete', 'first', 'last', 'insert', 'before', 'after', 'null', 'object', 'handle', 'and', 'or', 'xor', 'not', 'shl', 'shr', 'sar'];
+const keywords = ['dim', 'goto', 'gosub', 'return', 'exit', 'if', 'then', 'else', 'endif', 'end if', 'elseif', 'else if', 'while', 'wend', 'for', 'to', 'step', 'next', 'function', 'end function', 'type', 'end type', 'each', 'local', 'global', 'field', 'const', 'select', 'case', 'default', 'end select', 'repeat', 'until', 'forever', 'data', 'read', 'restore', 'abs', 'sgn', 'mod', 'pi', 'true', 'false', 'int', 'float', 'str', 'include', 'dialect', 'new', 'delete', 'first', 'last', 'insert', 'before', 'after', 'null', 'object', 'handle', 'and', 'or', 'xor', 'not', 'shl', 'shr', 'sar'];
 
 export class BlitzToker {
     private input: string[];
@@ -81,6 +81,23 @@ export class BlitzToker {
             return;
         }
         this.line = this.input[this.currRow] + '\n';
+
+        { // multiline comments
+            let k = 0, rem_nest = 0;
+            while (this.line[k] != '\n' && isspace(this.line[k])) k++;
+            if (this.line[k] == '/' && this.line[k + 1] == '*') {
+                ++rem_nest;
+                k += 2;
+            } else if (this.line[k] == '*' && this.line[k + 1] == '/') {
+                --rem_nest;
+                k += 2;
+            }
+            if (rem_nest) {
+                for (; this.line[k] != '\n'; ++k);
+                this.tokes.push({type: '\n', from: k, to: k + 1});
+                return;
+            }
+        }
 
         for (let k = 0; k < this.line.length;) {
             const c = this.line[k], from = k;

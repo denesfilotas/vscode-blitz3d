@@ -171,8 +171,38 @@
                 "properties": {
                     "blitz3d.installation.BlitzPath": {
                         "type": "string",
-                        "description": "Root of Blitz3D installation, containing the bin folder. Not required if environment variable is set.",
+                        "description": "Root of Blitz3D installation, containing the bin folder.",
                         "default": "C:\\Program Files (x86)\\Blitz3D"
+                    },
+                    "blitz3d.installation.SyntaxVersion": {
+                        "type": "string",
+                        "description": "Version of the language syntax (Blitz3D version)",
+                        "enum": [
+                            "Legacy",
+                            "v1.117",
+                            "v1.118 (soon)"
+                        ],
+                        "enumDescriptions": [
+                            "Blitz3D v1.111-v1.116 / NG",
+                            "Blitz3D v1.117",
+                            "NOT IMPLEMENTED YET: Blitz3D v1.118"
+                        ],
+                        "default": "v1.118"
+                    },
+                    "blitz3d.installation.RuntimeMode": {
+                        "type": "string",
+                        "description": "Type of runtime.dll in the installation folder",
+                        "enum": [
+                            "Blitz3D",
+                            "LibSGD",
+                            "Automatic (soon)"
+                        ],
+                        "enumDescriptions": [
+                            "Use original Blitz3D functions",
+                            "Use functions from the SGD library",
+                            "NOT IMPLEMENTED YET: Get available functions from the blitzcc command"
+                        ],
+                        "default": "Blitz3D"
                     }
                 }
             },
@@ -286,6 +316,7 @@
     },
     "dependencies": {
         "@vscode/debugadapter": "^1.56.0",
+        "blitz3d": "file:",
         "tree-kill": "^1.2.2"
     }
 }

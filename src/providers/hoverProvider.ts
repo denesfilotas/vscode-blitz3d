@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import { analyzed, parsed, userLibs } from '../context/context';
 import { stubs } from '../context/stubs';
 import * as bb from '../context/types';
-import { isInString, prettyName, startOfComment } from '../util/functions';
+import { isBuiltinBlitzFunction, isInString, prettyName, startOfComment } from '../util/functions';
 import { getType } from './typeDefinitionProvider';
 
 export function getFieldFromNestedExpression(exp: string, name: string, location: vscode.Location): { field: bb.Variable, parent: bb.Type; } | undefined {
@@ -62,6 +62,37 @@ export default class BlitzHoverProvider implements vscode.HoverProvider {
         }
         const example = new vscode.MarkdownString();
         example.isTrusted = true;
+
+        const fun = parsed.funcs.concat(userLibs).find(fun => fun.ident == def);
+        if (fun) {
+            def = '```\n' + `Function ${prettyName(fun.name, fun.tag)}(${fun.params.map(param => prettyName(param.name, param.tag) + (param.value != undefined ? ' = ' + param.value : '')).join(', ')})` + '\n```';
+            if (fun.description) desc.appendMarkdown(fun.description);
+            if (fun.params.length > 0) {
+                desc.appendMarkdown('\n#### Parameters\n');
+                for (const param of fun.params) {
+                    desc.appendMarkdown(`\`${param.name}\` ${param.value != undefined ? '(optional)' : ''} ${param.description ?? ''}  \n`);
+                }
+            }
+            if (fun.returns) desc.appendMarkdown(`\n#### Returns\n${fun.returns}\n`);
+            if (fun.authors?.length) {
+                desc.appendMarkdown('\n#### Author' + (fun.authors.length > 1 ? 's\n' : '\n'));
+                for (const author of fun.authors) {
+                    desc.appendMarkdown(` - ${author}  \n`);
+                }
+            }
+            if (fun.since) desc.appendMarkdown(`\n#### Since\n${fun.since}\n`);
+            if (fun.deprecated !== undefined) desc.appendMarkdown(`\n#### Deprecated\n${fun.deprecated}\n`);
+            return {
+                contents: [
+                    def,
+                    desc,
+                    example,
+                    'Defined in ' + fun.uri.path.substring(fun.uri.path.lastIndexOf('/') + 1)
+                ],
+                range: wr
+            };
+        }
+
         const stub = stubs.find(s => s.name.toLowerCase() == def);
         if (stub) {
             def = '```\n' + stub.declaration + '\n```';
@@ -81,6 +112,16 @@ export default class BlitzHoverProvider implements vscode.HoverProvider {
                     def,
                     desc,
                     example
+                ],
+                range: wr
+            };
+        } else if (isBuiltinBlitzFunction(def)) {
+            def = '(from library) ```' + def + '```';
+            desc.appendText('No description is available');
+            return {
+                contents: [
+                    def,
+                    desc
                 ],
                 range: wr
             };
@@ -183,36 +224,6 @@ export default class BlitzHoverProvider implements vscode.HoverProvider {
             ],
             range: wr
         };
-
-        const fun = parsed.funcs.concat(userLibs).find(fun => fun.ident == def);
-        if (fun) {
-            def = '```\n' + `Function ${prettyName(fun.name, fun.tag)}(${fun.params.map(param => prettyName(param.name, param.tag) + (param.value != undefined ? ' = ' + param.value : '')).join(', ')})` + '\n```';
-            if (fun.description) desc.appendMarkdown(fun.description);
-            if (fun.params.length > 0) {
-                desc.appendMarkdown('\n#### Parameters\n');
-                for (const param of fun.params) {
-                    desc.appendMarkdown(`\`${param.name}\` ${param.value != undefined ? '(optional)' : ''} ${param.description ?? ''}  \n`);
-                }
-            }
-            if (fun.returns) desc.appendMarkdown(`\n#### Returns\n${fun.returns}\n`);
-            if (fun.authors?.length) {
-                desc.appendMarkdown('\n#### Author' + (fun.authors.length > 1 ? 's\n' : '\n'));
-                for (const author of fun.authors) {
-                    desc.appendMarkdown(` - ${author}  \n`);
-                }
-            }
-            if (fun.since) desc.appendMarkdown(`\n#### Since\n${fun.since}\n`);
-            if (fun.deprecated !== undefined) desc.appendMarkdown(`\n#### Deprecated\n${fun.deprecated}\n`);
-            return {
-                contents: [
-                    def,
-                    desc,
-                    example,
-                    'Defined in ' + fun.uri.path.substring(fun.uri.path.lastIndexOf('/') + 1)
-                ],
-                range: wr
-            };
-        }
 
         const type = parsed.structs.find(type => type.ident == def);
         if (type) {

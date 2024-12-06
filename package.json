@@ -187,22 +187,7 @@
                             "Blitz3D v1.117",
                             "NOT IMPLEMENTED YET: Blitz3D v1.118"
                         ],
-                        "default": "v1.118"
-                    },
-                    "blitz3d.installation.RuntimeMode": {
-                        "type": "string",
-                        "description": "Type of runtime.dll in the installation folder",
-                        "enum": [
-                            "Blitz3D",
-                            "LibSGD",
-                            "Automatic (soon)"
-                        ],
-                        "enumDescriptions": [
-                            "Use original Blitz3D functions",
-                            "Use functions from the SGD library",
-                            "NOT IMPLEMENTED YET: Get available functions from the blitzcc command"
-                        ],
-                        "default": "Blitz3D"
+                        "default": "v1.117"
                     }
                 }
             },

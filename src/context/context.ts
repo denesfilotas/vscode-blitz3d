@@ -14,6 +14,7 @@ import { removeType } from '../util/functions';
 export let userLibs: bb.Function[] = [];
 export let blitzpath: string = vscode.workspace.getConfiguration('blitz3d.installation').get('BlitzPath') || env['BLITZPATH'] || '';
 export let blitzCmd = blitzpath.length > 0 ? '"' + path.join(blitzpath, 'bin', process.platform === 'win32' ? 'blitzcc.exe' : 'blitzcc') + '"' : 'blitzcc';
+export let builtinFunctions: string[] = [];
 export let parser: Parser;
 export let parsed: bb.ParseResult;
 export let analyzer: Analyzer;
@@ -28,6 +29,14 @@ export function updateBlitzPath(notify: boolean) {
         if (err) showErrorOnCompile(stdout, stderr);
         else if (notify) vscode.window.showInformationMessage('BlitzPath updated.');
     });
+    // detect functions
+    cp.exec(`${blitzCmd} -k`, env, (err, stdout, stderr) => {
+        if (err || stderr) builtinFunctions = [];
+        builtinFunctions = stdout.toLowerCase().split(/\r\n|\r|\n/);
+        const document = vscode.window.activeTextEditor?.document;
+        if (document) updateContext(document);
+    });
+    // TODO detect version and runtime
 }
 
 export function createLaunchContext() {

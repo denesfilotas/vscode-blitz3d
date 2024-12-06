@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { analyzed, parsed, userLibs } from '../context/context';
+import { analyzed, builtinFunctions, parsed, userLibs } from '../context/context';
 import { stubs } from '../context/stubs';
 import { isBlitzKeyword, isInString, startOfComment } from '../util/functions';
 import { getType } from './typeDefinitionProvider';
@@ -168,22 +168,27 @@ export default class CompletionItemProvider implements vscode.CompletionItemProv
         }
 
         // Builtin functions
-        for (const stub of stubs) {
-            const isKw = isBlitzKeyword(stub.name.split(' ')[0]);
-            let ci = new vscode.CompletionItem({ label: stub.name, detail: stub.declaration.substring(8).includes('(') ? '()' : '' }, isKw ? vscode.CompletionItemKind.Keyword : vscode.CompletionItemKind.Function);
-            ci.documentation = new vscode.MarkdownString(stub.description.join('  \n'));
-            if (useSnippets) {
-                ci.insertText = stub.snippet;
+        for (const kwname of builtinFunctions) {
+            const isKw = isBlitzKeyword(kwname.split(' ')[0]);
+            const stub = stubs.find(s => s.name.toLowerCase() == kwname.toLowerCase());
+            let ci = new vscode.CompletionItem({ label: stub?.name || kwname, detail: stub?.declaration.substring(8).includes('(') ? '()' : '' }, isKw ? vscode.CompletionItemKind.Keyword : vscode.CompletionItemKind.Function);
+            if (kwname == 'dim') ci.insertText = new vscode.SnippetString('Dim ${1:array_name}(${0:maxindex0...})');
+            if (stub) {
+                ci.documentation = new vscode.MarkdownString(stub.description.join('  \n'));
+                if (useSnippets) {
+                    ci.insertText = stub.snippet;
+                } else {
+                    if ((usebrackets && !isKw) || stub.declaration.substring(9).includes('(')) ci.insertText = new vscode.SnippetString(stub.name + '($0)');
+                    else ci.insertText = stub.name + ' ';
+                }
+                if (!isKw && stub.parameters.length > 0 && !stub.parameters[0].toLowerCase().includes('none')) {
+                    ci.command = {
+                        title: 'Trigger Parameter Hints',
+                        command: 'editor.action.triggerParameterHints'
+                    };
+                }
             } else {
-                if ((usebrackets && !isKw) || stub.declaration.substring(9).includes('(')) ci.insertText = new vscode.SnippetString(stub.name + '($0)');
-                else ci.insertText = stub.name + ' ';
-            }
-            if (stub.name == 'Dim') ci.insertText = new vscode.SnippetString('Dim ${1:array_name}(${0:maxindex0...})');
-            if (!isKw && stub.parameters.length > 0 && !stub.parameters[0].toLowerCase().includes('none')) {
-                ci.command = {
-                    title: 'Trigger Parameter Hints',
-                    command: 'editor.action.triggerParameterHints'
-                };
+                ci.documentation = '(from library) No documentation available'
             }
             r.push(ci);
         }

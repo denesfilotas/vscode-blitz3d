@@ -1,0 +1,8 @@
+# todo
+
+- automatic version detection
+- installation management - like python venv
+- terminal extension with blitzpath and env set
+- multiline comment highlighting etc
+- generate signatures from blitzcc +k
+- option for no syntax check

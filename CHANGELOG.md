@@ -3,6 +3,18 @@
 All major and minor version changes are listed here. Patch version changes should only contain bugfixes.
  > To see all changes in code since the first published version, check out the [GitHub repository](https://github.com/denesfilotas/vscode-blitz3d).
 
+## 0.9.2 (pre-release)
+
+- Bugfixes regarding includes (by [@Aryan807](https://github.com/Aryan807))
+- BBDoc support in userlibs
+- Extended error checking
+
+## 0.9.1 (pre-release)
+
+- Rewritten parser based on the official source
+- Added BBDoc keywords: `author`, `return`, `since` (by [@ZiYueCommentary](https://github.com/ZiYueCommentary/))
+- Added support for deprecated functions in BBDoc, inline styles and code completion
+
 ## 0.4.0
 
 - Stubs are no longer included with the extension

@@ -1,5 +1,10 @@
 .vscode/**
 .vscode-test/**
 .gitignore
+tsconfig.json
 stubs.bb
 *.vsix
+node_modules/**
+src/**
+out/extension.js.map
+TODO

@@ -26,12 +26,12 @@ export function updateBlitzPath(notify: boolean) {
     blitzpath = config || env['blitzpath'] || '';
     blitzCmd = blitzpath.length > 0 ? '"' + path.join(blitzpath, 'bin', process.platform === 'win32' ? 'blitzcc.exe' : 'blitzcc') + '"' : 'blitzcc';
     if (blitzpath.length > 0) env['blitzpath'] = blitzpath;
-    cp.exec(blitzCmd, env, (err, stdout, stderr) => {
+    cp.exec(blitzCmd, {env}, (err, stdout, stderr) => {
         if (err) showErrorOnCompile(stdout, stderr);
         else if (notify) vscode.window.showInformationMessage('BlitzPath updated.');
     });
     // detect functions
-    cp.exec(`${blitzCmd} -k`, env, (err, stdout, stderr) => {
+    cp.exec(`${blitzCmd} -k`, {env}, (err, stdout, stderr) => {
         if (err || stderr) builtinFunctions = [];
         builtinFunctions = stdout.split(/\r\n|\r|\n/);
         builtinFunctionsLower = stdout.toLowerCase().split(/\r\n|\r|\n/);

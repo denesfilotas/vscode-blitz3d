@@ -29,7 +29,7 @@ class DebugAdapter extends DebugSession {
         const cmd = `${blitzCmd} ${args.noDebug ? ' ' : ' -d '} "${args.bbfile}"`;
         const env = process.env;
         if (blitzpath.length > 0) env['BLITZPATH'] = blitzpath;
-        this.debugProcess = cp.exec(cmd, env);
+        this.debugProcess = cp.exec(cmd, {env});
         this.debugProcess.addListener('exit', code => this.sendEvent(new ExitedEvent(code ? code : 0)));
         this.debugProcess.addListener('close', () => this.sendEvent(new TerminatedEvent(false)));
         this.debugProcess.addListener('error', err => this.sendEvent(new OutputEvent('[ERROR] ' + err, 'console')));
@@ -43,13 +43,17 @@ class DebugAdapter extends DebugSession {
             this.debugProcess.removeAllListeners();
             this.debugProcess.stdout?.removeAllListeners();
             this.debugProcess.stderr?.removeAllListeners();
-            treekill(this.debugProcess.pid, error => {
-                if (error) {
-                    vscode.window.showErrorMessage('Error killing child process: ' + error);
-                    this.sendErrorResponse(response, 1);
-                    return;
-                }
-            });
+            if (this.debugProcess.pid) {
+                treekill(this.debugProcess.pid, error => {
+                    if (error) {
+                        vscode.window.showErrorMessage('Error killing child process: ' + error);
+                        this.sendErrorResponse(response, 1);
+                        return;
+                    }
+                });
+            } else {
+                vscode.window.showErrorMessage('Could not kill child process: no pid');
+            }
         } else this.sendResponse(response);
     }
 }

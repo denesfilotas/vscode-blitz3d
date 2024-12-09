@@ -177,7 +177,7 @@
                     "blitz3d.installation.SyntaxVersion": {
                         "type": "string",
                         "title": "Fallback Blitz3D version",
-                        "description": "This syntax version will be used when it cannot be determined from `blitzcc -v`",
+                        "markdownDescription": "This syntax version will be used when it cannot be determined from `blitzcc -v`",
                         "enum": [
                             "11.8",
                             "11.17",
@@ -197,13 +197,13 @@
                     },
                     "blitz3d.installation.RuntimeFlavor": {
                         "type": "string",
-                        "description": "Fallback source of available functions",
+                        "markdownDescription": "Fallback source of available functions, will be used when it cannot be determined from `blitzcc -k`",
                         "enum": [
                             "B3D",
                             "LibSGD"
                         ],
                         "enumDescriptions": [
-                            "List of Blitz3D functions with documentation parsing",
+                            "List of Blitz3D functions with documentation",
                             "List of LibSGD functions"
                         ],
                         "default": "B3D"

@@ -12,8 +12,13 @@ export interface Analyzer {
 
 export function getAnalyzer(bbtext: string, bburi: vscode.Uri, parsed: bb.ParseResult): Analyzer {
     switch (compilerVersion) {
-        case '11.17': return new Blitz117Analyzer(bbtext, bburi, parsed);
-        case '11.18': return new Blitz118Analyzer(bbtext, bburi, parsed);
-        default: return new BlitzLegacyAnalyzer(bbtext, bburi, parsed);
+        case '11.8':
+        case '2.0':
+            return new BlitzLegacyAnalyzer(bbtext, bburi, parsed);
+        case '11.17':
+            return new Blitz117Analyzer(bbtext, bburi, parsed);
+        case '11.18':
+        default:
+            return new Blitz118Analyzer(bbtext, bburi, parsed);
     }
 }

@@ -13,8 +13,13 @@ export interface Parser {
 export function getParser(bbtext: string, bburi: vscode.Uri): Parser {
     console.debug('switching on', compilerVersion);
     switch (compilerVersion) {
-        case '11.17': return new Blitz117Parser(bbtext, bburi);
-        case '11.18': return new Blitz118Parser(bbtext, bburi);
-        default: return new BlitzLegacyParser(bbtext, bburi);
+        case '11.8':
+        case '2.0':
+            return new BlitzLegacyParser(bbtext, bburi);
+        case '11.17':
+            return new Blitz117Parser(bbtext, bburi);
+        case '11.18':
+        default:
+            return new Blitz118Parser(bbtext, bburi);
     }
 }

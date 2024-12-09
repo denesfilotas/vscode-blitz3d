@@ -37,10 +37,12 @@ export default function compile(document: vscode.TextDocument) {
 function blitzcc(uri: vscode.Uri) {
 
     // run compiler with env got from config
-    const binpath = path.join(blitzpath, 'bin');
     const env = process.env;
-    if (blitzpath.length > 0) env['BLITZPATH'] = blitzpath;
-    cp.exec(`${blitzCmd} -c "${uri.path.substring(process.platform === 'win32' ? 1 : 0)}"`, {env}, (err, sout, serr) => {
+    const blitzEnv = {
+        'BLITZPATH': blitzpath,
+        'PATH': path.join(blitzpath, 'bin') + path.sep + env['PATH']
+    }
+    cp.exec(`${blitzCmd} -c "${uri.path.substring(process.platform === 'win32' ? 1 : 0)}"`, { env: blitzEnv }, (err, sout, serr) => {
         if (err) {
             if (serr.length > 0
                 || sout.trim() == "Can't find blitzpath environment variable"

@@ -1,7 +1,9 @@
 import * as vscode from 'vscode';
+import { compilerVersion } from '../context';
 import * as bb from '../types';
 import { BlitzLegacyAnalyzer } from './legacy_analyzer';
 import { Blitz117Analyzer } from './v117_analyzer';
+import { Blitz118Analyzer } from './v118_analyzer';
 
 export interface Analyzer {
     analyze(intext: string, uri: vscode.Uri, parsed: bb.ParseResult): bb.AnalyzeResult;
@@ -9,8 +11,9 @@ export interface Analyzer {
 }
 
 export function getAnalyzer(bbtext: string, bburi: vscode.Uri, parsed: bb.ParseResult): Analyzer {
-    switch(vscode.workspace.getConfiguration('blitz3d.installation').get('SyntaxVersion')) {
-        case 'v1.117': return new Blitz117Analyzer(bbtext, bburi, parsed);
+    switch (compilerVersion) {
+        case '11.17': return new Blitz117Analyzer(bbtext, bburi, parsed);
+        case '11.18': return new Blitz118Analyzer(bbtext, bburi, parsed);
         default: return new BlitzLegacyAnalyzer(bbtext, bburi, parsed);
     }
 }

@@ -176,18 +176,37 @@
                     },
                     "blitz3d.installation.SyntaxVersion": {
                         "type": "string",
-                        "description": "Version of the language syntax (Blitz3D version)",
+                        "title": "Fallback Blitz3D version",
+                        "description": "This syntax version will be used when it cannot be determined from `blitzcc -v`",
                         "enum": [
+                            "11.8",
+                            "11.17",
+                            "11.18"
+                        ],
+                        "enumItemLabels": [
                             "Legacy",
                             "v1.117",
-                            "v1.118 (soon)"
+                            "v1.118"
                         ],
                         "enumDescriptions": [
-                            "Blitz3D v1.111-v1.116 / NG",
+                            "Blitz3D v1.108b, upto v1.116 / NG",
                             "Blitz3D v1.117",
-                            "NOT IMPLEMENTED YET: Blitz3D v1.118"
+                            "Blitz3D v1.118"
                         ],
-                        "default": "v1.117"
+                        "default": "11.18"
+                    },
+                    "blitz3d.installation.RuntimeFlavor": {
+                        "type": "string",
+                        "description": "Fallback source of available functions",
+                        "enum": [
+                            "B3D",
+                            "LibSGD"
+                        ],
+                        "enumDescriptions": [
+                            "List of Blitz3D functions with documentation parsing",
+                            "List of LibSGD functions"
+                        ],
+                        "default": "B3D"
                     }
                 }
             },

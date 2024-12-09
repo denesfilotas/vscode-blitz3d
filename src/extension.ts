@@ -18,22 +18,25 @@ import SignatureHelpProvider from './providers/signatureHelpProvider';
 import TextDocumentContentProvider from './providers/textDocumentContentProvider';
 import { TypeDefinitionProvider } from './providers/typeDefinitionProvider';
 
+export let statusBarItem: vscode.StatusBarItem;
+
 export function activate(context: vscode.ExtensionContext) {
 
     // Diagnostics
     initializeDiagnostics(context);
 
+    statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right);
+    statusBarItem.tooltip = 'Blitz3D environment';
+    statusBarItem.command = {
+        title: 'Change BlitzPath',
+        command: 'workbench.action.openSettings',
+        arguments: ['blitz3d.installation']
+    };
+    context.subscriptions.push(statusBarItem);
+
     //Load paths
     updateBlitzPath(false);
     updateStubPath(context.asAbsolutePath('stubs.bb'));
-
-    // Load stubs to use immediately
-    initializeContext();
-    if (vscode.window.activeTextEditor) {
-        updateContext(vscode.window.activeTextEditor.document);
-        updateTodos(vscode.window.activeTextEditor.document);
-        compile(vscode.window.activeTextEditor.document);
-    }
 
     context.subscriptions.push(vscode.workspace.onDidSaveTextDocument(compile));
     context.subscriptions.push(vscode.workspace.onDidChangeTextDocument(e => {
@@ -100,7 +103,7 @@ export function activate(context: vscode.ExtensionContext) {
             vscode.window.showWarningMessage('Bracket snippets need to be updated. Reload window for changes to take effect', 'Reload')
                 .then((resp) => { if (resp) vscode.commands.executeCommand('workbench.action.reloadWindow'); });
         }
-        if (event.affectsConfiguration('blitz3d.installation.BlitzPath')) updateBlitzPath(true);
+        if (event.affectsConfiguration('blitz3d.installation')) updateBlitzPath(true);
         initializeContext();
     }));
     console.log('Blitz3D extension activated.');

@@ -1,105 +1,81 @@
 import { readFileSync } from 'fs';
 import { isAbsolute, join } from 'path';
 import * as vscode from 'vscode';
-import { isTerm, removeType } from '../../util/functions';
+import { isBuiltinBlitzFunction, isIllegalTypeConversion, isTerm } from '../../util/functions';
 import { BlitzToker } from '../../util/toker';
-import { obtainWorkingDir } from '../context';
 import * as bb from '../types';
-import { Parser } from './parser';
+import { obtainWorkingDir, userLibs } from '../context';
+import { Analyzer } from './analyzer';
 
-export class Blitz117Parser implements Parser {
+
+export class Blitz118Analyzer implements Analyzer {
 
     uri: vscode.Uri;
     workdir: string;
 
-    bbdoc: {
-        descLines: string[],
-        paramLines: Map<string, string>,
-        authors: string[],
-        returns: string,
-        deprecated?: string,
-        since: string;
-    };
-
     consts: bb.Variable[] = [];
     globals: bb.Variable[] = [];
+    locals: bb.Variable[] = [];
     structs: bb.Type[] = [];
     funcs: bb.Function[] = [];
-    datas: bb.Data[] = [];
+    datas: any[] = [];
     labels: bb.Token[] = [];
-    diagnostics: Map<vscode.Uri, vscode.Diagnostic[]> = new Map<vscode.Uri, vscode.Diagnostic[]>();
+    stmts: any[] = [];
+    diagnostics: Map<vscode.Uri, vscode.Diagnostic[]>;
     dialect: 'classic' | 'secure' | 'modern' = 'classic';
-    arrayDecls: Map<string, bb.DimmedArray> = new Map<string, bb.DimmedArray>();
+    arrayDecls: Map<string, bb.DimmedArray>;
     included: Set<string> = new Set<string>();
+
+
 
     toker: BlitzToker;
 
-    constructor(intext: string, uri: vscode.Uri) {
+    // for check of return statements
+    funtag: string = '';
 
+    constructor(intext: string, uri: vscode.Uri, parsed: bb.ParseResult) {
         this.toker = new BlitzToker(intext);
         this.uri = uri;
         this.workdir = obtainWorkingDir(uri);
-        this.consts = [];
-        this.structs = [];
-        this.funcs = [];
-        this.datas = [];
+        this.consts = parsed.consts;
+        this.globals = parsed.globals;
+        this.arrayDecls = parsed.arrayDecls;
+        this.locals = [];
+        this.structs = parsed.structs;
+        this.funcs = parsed.funcs;
+        this.datas = parsed.datas;
+        this.labels = parsed.labels;
         this.diagnostics = new Map<vscode.Uri, vscode.Diagnostic[]>();
-        this.bbdoc = {
-            descLines: [],
-            paramLines: new Map<string, string>(),
-            authors: [],
-            returns: '',
-            since: ''
-        };
         this.diagnostics.set(uri, []);
-        this.parseStmtSeq('prog');
-
-        if (this.toker.curr() != 'eof') this.expecting('<eof>');
+        this.parseStmtSeq('prog', this.locals);
     }
 
-    private expecting(thing: string) {
-        this.diagnostics.get(this.uri)?.push({
-            range: this.toker.range(),
-            message: `Syntax error: expecting ${thing}, got ${this.toker.curr().replace('\n', '<eol>')}`,
-            severity: vscode.DiagnosticSeverity.Error,
-            source: 'v1.117 Parser'
-        });
-    }
-
-    private exception(message: string) {
-        this.diagnostics.get(this.uri)?.push({
-            range: this.toker.range(),
-            message: 'Syntax error: ' + message,
-            severity: vscode.DiagnosticSeverity.Error,
-            source: 'v1.117 Parser'
-        });
-    }
-
-    getResults(): bb.ParseResult {
+    getResults(): bb.AnalyzeResult {
         return this;
     }
 
-    parse(intext: string, uri: vscode.Uri): bb.ParseResult {
+    analyze(intext: string, uri: vscode.Uri, parsed: bb.ParseResult): bb.AnalyzeResult {
         this.toker = new BlitzToker(intext);
         this.uri = uri;
         this.workdir = obtainWorkingDir(uri);
+        this.consts = parsed.consts;
+        this.globals = parsed.globals;
+        this.arrayDecls = parsed.arrayDecls;
+        this.locals = [];
+        this.structs = parsed.structs;
+        this.funcs = parsed.funcs;
+        this.datas = parsed.datas;
+        this.labels = parsed.labels;
+        this.diagnostics = new Map<vscode.Uri, vscode.Diagnostic[]>();
+        this.diagnostics.set(this.uri, []);
 
-        this.consts = this.consts.filter(constant => constant.uri.path != uri.path);
-        this.diagnostics.set(uri, []);
-        this.funcs = this.funcs.filter(fun => fun.uri.path != uri.path);
-        this.globals = this.globals.filter(global => global.uri.path != uri.path);
-        this.labels = this.labels.filter(label => label.uri.path != uri.path);
-        this.structs = this.structs.filter(type => type.uri.path != uri.path);
-
-        this.parseStmtSeq('prog');
-        if (this.toker.curr() != 'eof') this.expecting('<eof>');
+        this.parseStmtSeq('prog', this.locals);
 
         return this;
     }
 
-    parseIdent(): bb.Ident {
+    private parseIdent(): bb.Ident {
         if (this.toker.curr() != 'ident') {
-            this.expecting('identifier');
             return { ident: '<unnamed>', name: '<unnamed>' };
         }
         const ident = this.toker.text().toLowerCase();
@@ -108,34 +84,29 @@ export class Blitz117Parser implements Parser {
         return { ident, name };
     }
 
-    parseChar(c: string) {
-        if (this.toker.curr() != c) this.expecting(`'${c}'`);
+    private parseChar(c: string) {
         this.toker.next();
     }
 
-    parseStmtSeq(scope: 'prog' | 'block' | 'fun' | 'line') {
+    private parseStmtSeq(scope: 'prog' | 'block' | 'fun' | 'line', context: bb.Variable[]) {
+
         const prevDialect = this.dialect;
 
         if (scope == 'prog') {
             while (this.toker.curr() == '\n') this.toker.next();
             if (this.toker.curr() == 'dialect') {
-                if (this.toker.next() != 'stringconst') {
-                    this.expecting('dialect identifier');
-                } else {
+                if (this.toker.next() == 'stringconst') {
                     const name = this.toker.text();
                     switch (name) {
-                        case '"classic"':
-                            this.dialect = 'classic';
-                            break;
                         case '"secure"':
                             this.dialect = 'secure';
                             break;
                         case '"modern"':
                             this.dialect = 'modern';
                             break;
+                        case '"classic"':
                         default:
                             this.dialect = 'classic';
-                            this.exception(`unrecognized dialect '${name}'`);
                     }
                 }
                 this.toker.next();
@@ -146,45 +117,13 @@ export class Blitz117Parser implements Parser {
 
         for (; ;) {
             while (this.toker.curr() == ':' || (scope != 'line' && this.toker.curr() == '\n')) {
-                const bbdoc = this.toker.text();
-                if (bbdoc.startsWith(';; ')) {
-                    this.bbdoc.descLines.push(bbdoc.substring(3));
-                } else if (bbdoc.startsWith(';;param ')) {
-                    const line = bbdoc.substring(8);
-                    if (line.includes(' ')) {
-                        const param = line.substring(0, line.indexOf(' '));
-                        const desc = line.substring(line.indexOf(' ') + 1);
-                        this.bbdoc.paramLines.set(removeType(param.toLowerCase()), desc);
-                    } else {
-                        this.diagnostics.get(this.uri)?.push({
-                            message: `BBDoc: incomplete parameter description`,
-                            range: this.toker.range(),
-                            severity: vscode.DiagnosticSeverity.Warning
-                        });
-                    }
-                } else if (bbdoc.startsWith(';;author ')) {
-                    this.bbdoc.authors.push(bbdoc.substring(9));
-                } else if (bbdoc.startsWith(';;return ')) {
-                    this.bbdoc.returns = bbdoc.substring(9);
-                } else if (bbdoc.startsWith(';;since ')) {
-                    this.bbdoc.since = bbdoc.substring(8);
-                } else if (bbdoc.startsWith(';;deprecated')) {
-                    this.bbdoc.deprecated = bbdoc.substring(12).trim();
-                } else if (bbdoc.startsWith(';;') && !bbdoc.startsWith(';;todo')) {
-                    this.diagnostics.get(this.uri)?.push({
-                        message: `Invalid BBDoc`,
-                        range: this.toker.range(),
-                        severity: vscode.DiagnosticSeverity.Warning
-                    });
-                }
                 this.toker.next();
             }
             let pos = this.toker.range();
             switch (this.toker.curr()) {
                 case 'include':
-                    if (this.toker.next() != 'stringconst') this.expecting('include filename');
+                    this.toker.next();
                     const inc = this.toker.text();
-                    const start = this.toker.range().start;
                     this.toker.next();
                     const infile = inc.substring(1, inc.length - 1).toLowerCase();
                     const infilepath = isAbsolute(infile) ? infile : join(this.workdir, infile);
@@ -198,104 +137,121 @@ export class Blitz117Parser implements Parser {
                         this.uri = vscode.Uri.file(infilepath);
                         this.diagnostics.set(this.uri, []);
                         this.included.add(infilepath);
-                        this.parseStmtSeq(scope);
-                        if (this.toker.curr() != 'eof') this.expecting('<eof>');
+                        this.parseStmtSeq(scope, context);
                         this.toker = t_toker;
                         this.uri = t_uri;
-                    } catch (err) {
-                        this.diagnostics.get(this.uri)?.push({
-                            message: `Unable to open include file '${infilepath}'`,
-                            range: new vscode.Range(start, this.toker.range().start),
-                            severity: vscode.DiagnosticSeverity.Error
-                        });
-                    }
+                    } catch (err) { /*console.error(err);*/ }
                     break;
                 case 'ident':
                     {
                         const ident = this.parseIdent();
+                        const trange = this.toker.range();
                         const tag = this.parseTypeTag();
+                        if (tag && !'%#$'.includes(tag) && !this.structs.find(type => type.ident == tag)) this.diagnostics.get(this.uri)?.push({
+                            message: `Unknown type '${tag}'`,
+                            range: new vscode.Range(trange.end, this.toker.range().start),
+                            severity: vscode.DiagnosticSeverity.Error
+                        });
                         const isDot = (this.dialect == 'modern' && this.toker.curr() == '.') || (this.dialect != 'modern' && this.toker.curr() == '\\');
                         if (!this.arrayDecls.has(ident.ident) && this.toker.curr() != '=' && !isDot && this.toker.curr() != '[') {
-                            let exprs;
+                            const fun = this.funcs.concat(userLibs).find(fun => fun.ident == ident.ident);
+                            if (!isBuiltinBlitzFunction(ident.ident) && !fun) this.diagnostics.get(this.uri)?.push({
+                                message: `Unknown function '${ident.name}'`,
+                                range: pos,
+                                severity: vscode.DiagnosticSeverity.Error
+                            });
                             if (this.toker.curr() == '(') {
                                 let nest = 1, k;
                                 for (k = 1; ; ++k) {
                                     const c = this.toker.lookAhead(k);
                                     if (isTerm(c)) {
-                                        this.exception('mismatched brackets');
                                         break;
                                     } else if (c == '(') ++nest;
                                     else if (c == ')' && --nest == 0) break;
                                 }
                                 if (isTerm(this.toker.lookAhead(++k))) {
                                     this.toker.next();
-                                    exprs = this.parseExprSeq();
-                                    if (this.toker.curr() != ')') this.expecting("')'");
+                                    this.parseExprSeq(context, fun);
                                     this.toker.next();
                                 } else {
-                                    exprs = this.parseExprSeq();
+                                    this.parseExprSeq(context, fun);
                                 }
                             } else {
-                                exprs = this.parseExprSeq();
+                                this.parseExprSeq(context, fun);
                             }
                         } else {
-                            // const variable = this.parseVar(ident, tag);
-                            this.parseVar(ident, tag);
-                            // if (!this.arrayDecls.has(ident.ident) && !context.concat(this.globals, this.consts).find(local => local.ident == variable.ident)) context.push(variable);
-                            if (this.toker.curr() != '=') this.expecting('variable assignment');
+                            const variable = this.parseVar(true, context, ident, tag, pos);
+                            const oldVar = this.arrayDecls.get(variable.ident) ?? context.concat(this.globals, this.consts).find(local => local.ident == variable.ident);
+                            const vartag = variable.tag || oldVar?.tag || '%';
+                            if (!oldVar && variable.kind != 'field' && variable.kind != 'array') context.push(variable);
+                            if (oldVar?.constant) this.diagnostics.get(this.uri)?.push({
+                                message: `Constant variable ${oldVar.name} cannot be assigned to`,
+                                range: this.toker.range(),
+                                severity: vscode.DiagnosticSeverity.Error
+                            });
                             this.toker.next();
-                            this.parseExpr(false);
-                            // variable.range = new vscode.Range(variable.range.start, this.toker.range().end);
+                            const expression = this.parseExpr(context);
+                            const exprtag = expression?.kind.replace('.', expression.type ?? '') || '%';
+                            const illegal = isIllegalTypeConversion(exprtag, vartag);
+                            if (illegal) this.diagnostics.get(this.uri)?.push({
+                                message: `Expression of type '${exprtag}' ${illegal == 1 ? 'should not' : 'cannot'} be assigned to variable of type '${vartag}'`,
+                                range: expression?.range ?? pos,
+                                severity: illegal == 1 ? vscode.DiagnosticSeverity.Warning : vscode.DiagnosticSeverity.Error
+                            });
+                            if ((!tag || tag == '%') && exprtag == '?') variable.tag = exprtag;
                         }
                     }
                     break;
                 case 'if':
                     {
                         this.toker.next();
-                        this.parseIf(scope == 'fun' ? 'fun' : 'block');
+                        this.parseIf(scope == 'fun' ? 'fun' : 'block', context);
                         if (this.toker.curr() == 'endif') this.toker.next();
                     }
                     break;
                 case 'while':
                     {
                         this.toker.next();
-                        this.parseExpr(false);
-                        this.parseStmtSeq(scope == 'fun' ? 'fun' : 'block');
-                        if (this.toker.curr() == 'wend') this.toker.next();
-                        else this.expecting("'Wend'");
+                        this.parseExpr(context);
+                        this.parseStmtSeq(scope == 'fun' ? 'fun' : 'block', context);
+                        this.toker.next();
                     }
                     break;
                 case 'repeat':
                     {
                         this.toker.next();
-                        this.parseStmtSeq(scope == 'fun' ? 'fun' : 'block');
+                        this.parseStmtSeq(scope == 'fun' ? 'fun' : 'block', context);
                         const curr = this.toker.curr();
-                        if (curr != 'until' && curr != 'forever') this.expecting("'Until' or 'Forever'");
                         this.toker.next();
-                        if (curr == 'until') this.parseExpr(false);
+                        if (curr == 'until') this.parseExpr(context);
                     }
                     break;
                 case 'select':
                     {
                         this.toker.next();
-                        this.parseExpr(false);
+                        this.parseExpr(context);
+                        const nodes: any[] = [];
                         for (; ;) {
                             while (isTerm(this.toker.curr())) this.toker.next();
                             if (this.toker.curr() == 'case') {
                                 this.toker.next();
-                                const expressions = this.parseExprSeq();
-                                if (expressions.length == 0) this.expecting('expression sequence');
-                                this.parseStmtSeq(scope == 'fun' ? 'fun' : 'block');
+                                const expressions = this.parseExprSeq(context);
+                                this.parseStmtSeq(scope == 'fun' ? 'fun' : 'block', context);
+                                for (const expr of expressions) {
+                                    if (!expr.value) continue;
+                                    if (nodes.includes(expr.value)) this.diagnostics.get(this.uri)?.push({
+                                        message: `Duplicate case '${expr.value}'`,
+                                        range: expr.range,
+                                        severity: vscode.DiagnosticSeverity.Warning
+                                    });
+                                    nodes.push(expr.value);
+                                }
                                 continue;
                             } else if (this.toker.curr() == 'default') {
                                 this.toker.next();
-                                this.parseStmtSeq(scope == 'fun' ? 'fun' : 'block');
-                                if (this.toker.curr() != 'endselect') this.expecting("'End Select'");
-                                break;
-                            } else if (this.toker.curr() == 'endselect') {
+                                this.parseStmtSeq(scope == 'fun' ? 'fun' : 'block', context);
                                 break;
                             }
-                            this.expecting("'Case', 'Default' or 'End Select'");
                             break;
                         }
                         this.toker.next();
@@ -303,33 +259,36 @@ export class Blitz117Parser implements Parser {
                     break;
                 case 'for':
                     {
-                        let variable: bb.Variable;
                         this.toker.next();
-                        variable = this.parseVar();
-                        // if (!context.concat(this.globals, this.consts).find(local => local.ident == variable.ident)) context.push(variable);
-                        if (this.toker.curr() != '=') this.expecting('variable assignment');
+                        const variable = this.parseVar(true, context);
+                        if (context.concat(this.globals, this.consts).find(local => local.ident == variable.ident)) {
+                            this.diagnostics.get(this.uri)?.push({
+                                message: `Overwriting variable '${variable.name}'`,
+                                range: variable.range,
+                                severity: vscode.DiagnosticSeverity.Hint
+                            });
+                        } else {
+                            context.push(variable);
+                        }
                         if (this.toker.next() == 'each') {
                             this.toker.next();
-                            this.parseIdent();
-                            this.parseStmtSeq(scope == 'fun' ? 'fun' : 'block');
-                            if (this.toker.curr() != 'next') this.expecting("'Next'");
+                            const ident = this.parseIdent();
+                            if (!this.structs.find(type => type.ident == ident.ident)) this.diagnostics.get(this.uri)?.push({
+                                message: `Unknown type '${ident.name}'`,
+                                range: this.toker.range(),
+                                severity: vscode.DiagnosticSeverity.Error
+                            });
+                            this.parseStmtSeq(scope == 'fun' ? 'fun' : 'block', context);
                             this.toker.next();
                         } else {
-                            let from, to, step;
-                            from = this.parseExpr(false);
-                            if (this.toker.curr() != 'to') this.expecting("'To'");
+                            this.parseExpr(context);
                             this.toker.next();
-                            to = this.parseExpr(false);
+                            this.parseExpr(context);
                             if (this.toker.curr() == 'step') {
                                 this.toker.next();
-                                step = this.parseExpr(false);
-                            } else step = {
-                                kind: 'const',
-                                tag: '%',
-                                value: 1
-                            };
-                            this.parseStmtSeq(scope == 'fun' ? 'fun' : 'block');
-                            if (this.toker.curr() != 'next') this.expecting("'Next'");
+                                this.parseExpr(context);
+                            }
+                            this.parseStmtSeq(scope == 'fun' ? 'fun' : 'block', context);
                             this.toker.next();
                         }
                     }
@@ -338,154 +297,164 @@ export class Blitz117Parser implements Parser {
                     this.toker.next();
                     break;
                 case 'goto':
+                    {
+                        this.toker.next();
+                        const range = this.toker.range();
+                        const t = this.parseIdent();
+                        if (!this.labels.find(label => label.ident == t.ident)) this.diagnostics.get(this.uri)?.push({
+                            message: `Unknown label '${t.name}'`,
+                            range: range,
+                            severity: vscode.DiagnosticSeverity.Error
+                        });
+                    }
+                    break;
                 case 'gosub':
                     {
                         this.toker.next();
-                        this.parseIdent();
+                        const range = this.toker.range();
+                        const t = this.parseIdent();
+                        if (!this.labels.find(label => label.ident == t.ident)) this.diagnostics.get(this.uri)?.push({
+                            message: `Unknown label '${t.name}'`,
+                            range: range,
+                            severity: vscode.DiagnosticSeverity.Error
+                        });
                     }
                     break;
                 case 'return':
                     {
-                        if (scope != 'fun' && scope != 'line') this.diagnostics.get(this.uri)?.push({
-                            message: 'Cannot return from outside of a function',
-                            range: this.toker.range(),
-                            severity: vscode.DiagnosticSeverity.Error
-                        });
+                        // if (scope != 'fun') this.diagnostics.get(this.uri)?.push({
+                        //     message: 'Cannot return from outside of a function',
+                        //     range: this.toker.range(),
+                        //     severity: vscode.DiagnosticSeverity.Error
+                        // });
                         this.toker.next();
-                        this.parseExpr(true);
+                        const expr = this.parseExpr(context);
+                        if (expr?.kind) {
+                            const exprtag = expr.kind.replace('.', expr.type ?? '');
+                            if (exprtag && expr.kind != '?' && !this.funtag) {
+                                const illegal = isIllegalTypeConversion(exprtag, '%');
+                                this.diagnostics.get(this.uri)?.push({
+                                    message: `Return type '${exprtag}' ${illegal == 2 ? 'must' : 'should'} be indicated at function definition`,
+                                    range: expr.range,
+                                    severity: illegal < 2 ? vscode.DiagnosticSeverity.Warning : vscode.DiagnosticSeverity.Error
+                                });
+                            }
+                            if (exprtag && this.funtag) {
+                                const illegal = isIllegalTypeConversion(exprtag, this.funtag);
+                                if (illegal) {
+                                    this.diagnostics.get(this.uri)?.push({
+                                        message: `Expression of type '${exprtag}' ${illegal == 1 ? 'should not' : 'cannot'} be implicitly converted to type '${this.funtag || '%'}'`,
+                                        range: expr.range,
+                                        severity: illegal == 1 ? vscode.DiagnosticSeverity.Warning : vscode.DiagnosticSeverity.Error
+                                    });
+                                }
+                            }
+                        }
                     }
                     break;
                 case 'delete':
                     {
                         if (this.toker.next() == 'each') {
                             this.toker.next();
-                            this.parseIdent();
+                            const t = this.parseIdent();
+                            if (!this.structs.find(type => type.ident == t.ident)) this.diagnostics.get(this.uri)?.push({
+                                message: `Unknown type '${t.name}'`,
+                                range: this.toker.range(),
+                                severity: vscode.DiagnosticSeverity.Error
+                            });
                         } else {
-                            this.parseExpr(false);
+                            this.parseExpr(context);
                         }
                     }
                     break;
                 case 'insert':
                     {
                         this.toker.next();
-                        this.parseExpr(false);
-                        if (this.toker.curr() != 'before' && this.toker.curr() != 'after') this.expecting("'Before' or 'After'");
+                        this.parseExpr(context);
                         this.toker.next();
-                        this.parseExpr(false);
+                        this.parseExpr(context);
                     }
                     break;
                 case 'read':
                     do {
                         this.toker.next();
-                        this.parseVar();
+                        const variable = this.parseVar(false, context);
+                        this.stmts.push({
+                            kind: 'read',
+                            range: pos
+                        });
                         pos = this.toker.range();
                     } while (this.toker.curr() == ',');
                     break;
                 case 'restore':
                     if (this.toker.next() == 'ident') {
-
+                        if (!this.labels.find(label => label.ident == this.toker.text().toLowerCase())) this.diagnostics.get(this.uri)?.push({
+                            message: `Unknown label '${this.toker.text()}'`,
+                            range: this.toker.range(),
+                            severity: vscode.DiagnosticSeverity.Error
+                        });
                     }
                     this.toker.next();
                     break;
                 case 'data':
-                    if (scope != 'prog') this.exception('Data can only be declared in the main program');
                     do {
                         this.toker.next();
                         this.datas.push({
                             kind: 'data', // TODO
-                            expression: this.parseExpr(false)
+                            expression: this.parseExpr(context)
                         });
                     } while (this.toker.curr() == ',');
                     break;
                 case 'type':
-                    if (scope != 'prog') this.exception('Types can only be declared in the main program');
-                    this.structs.push(this.parseStructDecl());
+                    this.parseStructDecl(context);
                     break;
                 case 'const':
-                    if (scope != 'prog') this.exception('Constants can only be declared in the main program');
                     do {
                         const start = this.toker.range().start;
                         this.toker.next();
-                        this.consts.push(this.parseVarDecl('global', true, start));
+                        // this.consts = this.consts.filter(c => c.ident != variable.ident);
+                        const variable = this.parseVarDecl('global', true, context, start);
+                        const constant = this.consts.find(c => c.ident == variable.ident);
+                        if (constant) Object.assign(constant, variable);
+                        else this.consts.push(variable);
                     } while (this.toker.curr() == ',');
                     break;
                 case 'function':
-                    if (scope != 'prog') this.exception('Functions can only be defined in the main program');
-                    const fun = this.parseFuncDecl();
-                    fun.description = this.bbdoc.descLines.join('  \n');
-                    for (const [paramName, paramDesc] of this.bbdoc.paramLines) {
-                        const param = fun.params.find(param => param.ident == removeType(paramName).toLowerCase());
-                        if (!param) {
-                            this.diagnostics.get(this.uri)?.push({
-                                message: `BBDoc for non-existent parameter '${paramName}'`,
-                                range: fun.declarationRange,
-                                severity: vscode.DiagnosticSeverity.Warning
-                            });
-                            continue;
-                        }
-                        param.description = paramDesc;
-                    }
-                    fun.authors = this.bbdoc.authors;
-                    fun.returns = this.bbdoc.returns;
-                    fun.since = this.bbdoc.since;
-                    fun.deprecated = this.bbdoc.deprecated;
-                    this.funcs.push(fun);
-                    this.bbdoc = {
-                        descLines: [],
-                        paramLines: new Map<string, string>(),
-                        authors: [],
-                        returns: '',
-                        deprecated: undefined,
-                        since: ''
-                    };
+                    const fun = this.parseFuncDecl(context);
+                    const prev = this.funcs.find(f => f.ident == fun.ident);
+                    if (prev) Object.assign(prev, fun);
+                    else this.funcs.push(fun);
                     break;
                 case 'dim':
                     do {
                         this.toker.next();
-                        this.parseArrayDecl();
+                        this.parseArrayDecl(context);
                     } while (this.toker.curr() == ',');
                     break;
                 case 'local':
                     do {
                         const start = this.toker.range().start;
                         this.toker.next();
-                        // context.push(this.parseVarDecl('local', false, start));
-                        this.parseVarDecl('local', false, start);
+                        const variable = this.parseVarDecl('local', false, context, start);
+                        context.push(variable);
                     } while (this.toker.curr() == ',');
                     break;
                 case 'global':
-                    if (scope != 'prog') this.exception('global variables can only be declared in the main program');
+                    // if (scope != 'prog') this.exception('global variables can only be declared in the main program');
                     do {
                         const start = this.toker.range().start;
                         this.toker.next();
-                        this.globals.push(this.parseVarDecl('global', false, start));
+                        this.parseVarDecl('global', false, context, start);
                     } while (this.toker.curr() == ',');
                     break;
                 case '.':
-                    {
-                        const start = this.toker.range().start;
-                        this.toker.next();
-                        const range = this.toker.range();
-                        const ident = this.parseIdent();
-                        if (this.labels.find(label => label.ident == ident.ident)) this.diagnostics.get(this.uri)?.push({
-                            message: `Duplicate label '${ident.name}'`,
-                            range: pos,
-                            severity: vscode.DiagnosticSeverity.Error
-                        });
-                        this.labels.push({
-                            kind: 'label',
-                            ...ident,
-                            range: new vscode.Range(start, this.toker.range().start),
-                            declarationRange: range,
-                            uri: this.uri
-                        });
-                    }
+                    this.toker.next();
+                    this.parseIdent();
                     break;
                 case 'eof':
                     return;
                 default:
                     if (scope != 'prog') return;
-                    this.exception(`unexpected token '${this.toker.curr().replace('\n', '<eol>')}'`);
                     this.toker.next();
                     break;
             }
@@ -493,7 +462,7 @@ export class Blitz117Parser implements Parser {
         this.dialect = prevDialect;
     }
 
-    parseTypeTag(): string {
+    private parseTypeTag(): string {
         switch (this.toker.curr()) {
             case '%':
                 this.toker.next();
@@ -512,33 +481,46 @@ export class Blitz117Parser implements Parser {
         return "";
     }
 
-    parseVar(ident?: bb.Ident, tag?: string, mustExist = true): bb.Variable {
-        if (!ident && !tag) {
+    private parseVar(allowImplicit: boolean, context: bb.Variable[], ident?: bb.Ident, tag?: string, range?: vscode.Range): bb.Variable {
+        if (!ident && !tag && !range) {
+            range = this.toker.range();
             ident = this.parseIdent();
             tag = this.parseTypeTag();
         }
-        let variable: bb.Variable;
+        let variable: bb.Variable | undefined = context.find(v => v.ident == ident?.ident) ?? this.consts.find(c => c.ident == ident?.ident) ?? this.globals.find(v => v.ident == ident?.ident) ?? this.arrayDecls.get(ident?.ident ?? '');
+        if (!variable && !allowImplicit) {
+            this.diagnostics.get(this.uri)?.push({
+                message: 'Implicit variable declaration',
+                range: range!,
+                severity: vscode.DiagnosticSeverity.Hint
+            });
+        }
+        const illegal = isIllegalTypeConversion(variable?.tag || '%', tag || '%');
+        if (tag && variable && illegal) this.diagnostics.get(this.uri)?.push({
+            message: `Variable of type '${variable.tag || '%'}' ${illegal == 1 ? 'should not' : 'cannot'} be implicitly converted to type '${tag}'`,
+            range: range!,
+            severity: illegal == 1 ? vscode.DiagnosticSeverity.Warning : vscode.DiagnosticSeverity.Error
+        });
         if (this.toker.curr() == '(') {
             this.toker.next();
-            const exprs = this.parseExprSeq();
-            if (this.toker.curr() != ')') this.expecting("')");
+            this.parseExprSeq(context);
             this.toker.next();
-            variable = {
+            variable = variable ?? {
                 kind: 'array',
                 ...ident!,
                 tag: tag!,
                 constant: false,
-                range: this.toker.range(), // overriden later
+                range: this.toker.range(),
                 declarationRange: this.toker.range(),
                 uri: this.uri,
             };
         } else {
-            variable = {
+            variable = variable ?? {
                 kind: 'variable',
                 ...ident!,
                 tag: tag!,
                 constant: false,
-                range: this.toker.range(), // overriden later
+                range: this.toker.range(),
                 declarationRange: this.toker.range(),
                 uri: this.uri
             };
@@ -547,31 +529,49 @@ export class Blitz117Parser implements Parser {
         for (; ;) {
             if ((this.dialect == 'modern' && this.toker.curr() == '.') || (this.dialect != 'modern' && this.toker.curr() == '\\')) {
                 this.toker.next();
-                this.parseIdent();
-                this.parseTypeTag();
+                const range = this.toker.range();
+                ident = this.parseIdent();
+                tag = this.parseTypeTag();
+                const type = this.structs.find(type => type.ident == variable!.tag);
+                const f = type?.fields.find(field => field.ident == ident?.ident);
+                if (f) variable = f;
+                else this.diagnostics.get(this.uri)?.push({
+                    message: `Unknown field '${ident?.name}'`,
+                    range: range,
+                    severity: vscode.DiagnosticSeverity.Error
+                });
+                const illegal = isIllegalTypeConversion(variable?.tag || '%', tag || '%');
+                if (f && tag && variable && illegal) this.diagnostics.get(this.uri)?.push({
+                    message: `Variable of type '${variable.tag || '%'}' ${illegal == 1 ? 'should not' : 'cannot'} be converted to type '${tag}'`,
+                    range: range,
+                    severity: illegal == 1 ? vscode.DiagnosticSeverity.Warning : vscode.DiagnosticSeverity.Error
+                });
+
             } else if (this.toker.curr() == '[') {
                 this.toker.next();
-                const exprs = this.parseExprSeq();
-                if (exprs.length == 0) this.expecting('expression');
-                else if (exprs.length > 1 || this.toker.curr() != ']') this.expecting("']'");
+                this.parseExprSeq(context);
                 this.toker.next();
             } else {
                 break;
             }
         }
-        return variable;
+        return { ...variable, range: range!, declarationRange: range! };
     }
 
-    parseVarDecl(kind: 'local' | 'global' | 'param' | 'field', constant: boolean, start: vscode.Position): bb.Variable {
+    private parseVarDecl(kind: 'local' | 'global' | 'param' | 'field', constant: boolean, context: bb.Variable[], start: vscode.Position): bb.Variable {
         const range = this.toker.range();
         const ident = this.parseIdent();
-        const tag = this.parseTypeTag();
+        const trange = this.toker.range();
+        let tag = this.parseTypeTag() || '%';
+        if (!'%#$'.includes(tag) && !this.structs.find(type => type.ident == tag)) this.diagnostics.get(this.uri)?.push({
+            message: `Unknown type '${tag}'`,
+            range: new vscode.Range(trange.end, this.toker.range().start),
+            severity: vscode.DiagnosticSeverity.Error
+        });
         if (this.toker.curr() == '[') {
-            if (constant) this.exception('Blitz arrays cannot be constant');
+            // if (constant) this.exception('Blitz arrays cannot be constant');
             this.toker.next();
-            const exprs = this.parseExprSeq();
-            if (exprs.length == 0) this.expecting('expression');
-            else if (exprs.length > 1 || this.toker.curr() != ']') this.expecting("']'");
+            this.parseExprSeq(context);
             this.toker.next();
             return {
                 kind: 'vector',
@@ -586,9 +586,17 @@ export class Blitz117Parser implements Parser {
             let expr;
             if (this.toker.curr() == '=') {
                 this.toker.next();
-                expr = this.parseExpr(false);
+                expr = this.parseExpr(context) as bb.Expression;
+                const exprtag = expr.kind.replace('.', expr.type ?? '') || '%';
+                const illegal = isIllegalTypeConversion(exprtag, tag);
+                if (tag && illegal) this.diagnostics.get(this.uri)?.push({
+                    message: `Expression of type '${exprtag}' ${illegal == 1 ? 'should not' : 'cannot'} be assigned to variable of type '${tag}'`,
+                    range: expr.range,
+                    severity: illegal == 1 ? vscode.DiagnosticSeverity.Warning : vscode.DiagnosticSeverity.Error
+                });
+                if ((!tag || tag == '%') && exprtag == '?') tag = '?';
             } else if (constant) {
-                this.exception('Constants must be initialized');
+                // this.exception('constants must be initialized');
             }
             return {
                 kind: kind,
@@ -603,16 +611,14 @@ export class Blitz117Parser implements Parser {
         }
     }
 
-    parseArrayDecl(): bb.DimmedArray | undefined {
+    private parseArrayDecl(context: bb.Variable[]): bb.DimmedArray | undefined {
         const range = this.toker.range();
         const ident = this.parseIdent();
         if (!ident) return;
         const tag = this.parseTypeTag();
-        if (this.toker.curr() != '(') this.expecting("'('");
         this.toker.next();
-        const expressions = this.parseExprSeq();
-        if (this.toker.curr() != ')') this.expecting("')'");
-        if (expressions.length == 0) this.exception('arrays must have at least one dimension');
+        const expressions = this.parseExprSeq(context);
+        // if (expressions.length == 0) this.exception('arrays must have at least one dimension');
         this.toker.next();
         const d = {
             kind: 'array',
@@ -628,28 +634,27 @@ export class Blitz117Parser implements Parser {
         return d;
     }
 
-    parseFuncDecl(): bb.Function {
+    private parseFuncDecl(context: bb.Variable[]): bb.Function {
         const declRangeStart = this.toker.range().start;
         this.toker.next();
         const range = this.toker.range();
         const ident = this.parseIdent();
         const tag = this.parseTypeTag();
-        if (this.toker.curr() != '(') this.expecting("'('");
+        this.funtag = tag;
         const params = [];
         if (this.toker.next() != ')') {
             for (; ;) {
-                params.push(this.parseVarDecl('param', false, this.toker.range().start));
+                params.push(this.parseVarDecl('param', false, context, this.toker.range().start));
                 if (this.toker.curr() != ',') break;
                 this.toker.next();
             }
-            if (this.toker.curr() != ')') this.expecting("')'");
         }
         this.toker.next();
         const locals = [...params];
-        this.parseStmtSeq('fun');
-        if (this.toker.curr() != 'endfunction' && this.toker.curr() != 'end') this.expecting("'End Function' or 'End'");
+        this.parseStmtSeq('fun', locals);
         const declRangeEnd = this.toker.range().end;
         this.toker.next();
+        this.funtag = '';
         return {
             kind: 'function',
             ...ident,
@@ -662,59 +667,19 @@ export class Blitz117Parser implements Parser {
         };
     }
 
-    parseStructDecl(): bb.Type {
+    private parseStructDecl(context: bb.Variable[]): bb.Type {
         const pos = this.toker.range().start;
         this.toker.next();
         const range = this.toker.range();
         const ident = this.parseIdent();
-        const existingType = this.structs.find(t => t.ident == ident.ident);
-        if (existingType) {
-            this.diagnostics.get(this.uri)?.push({
-                message: `Duplicate type '${ident.name}'`,
-                range: range,
-                severity: vscode.DiagnosticSeverity.Error,
-                relatedInformation: [
-                    {
-                        location: {
-                            uri: existingType.uri,
-                            range: existingType.declarationRange
-                        },
-                        message: 'Existing type is declared here'
-                    }
-                ]
-            });
-        }
         while (this.toker.curr() == '\n') this.toker.next();
         const fields: bb.Variable[] = [];
         while (this.toker.curr() == 'field') {
-            const start = this.toker.range().start;
             const lineFields = [];
             do {
                 this.toker.next();
-                const field = this.parseVarDecl('field', false, start);
-                const existingField = fields.find(f => f.ident == field.ident);
-                if (existingField) this.diagnostics.get(this.uri)?.push({
-                    message: `Duplicate field '${field.name}'`,
-                    range: field.range,
-                    severity: vscode.DiagnosticSeverity.Error,
-                    relatedInformation: [
-                        {
-                            location: {
-                                uri: existingField.uri,
-                                range: existingField.range
-                            },
-                            message: 'Existing field declaration is here'
-                        },
-                        {
-                            location: {
-                                uri: field.uri,
-                                range: field.range
-                            },
-                            message: 'Trying to re-declare here'
-                        }
-                    ]
-                });
-                else lineFields.push(field);
+                const field = this.parseVarDecl('field', false, context, range.start);
+                if (!fields.find(f => f.ident == field.ident)) lineFields.push(field);
             } while (this.toker.curr() == ',');
             if (this.toker.text().startsWith(';')) {
                 for (const field of lineFields) field.description = this.toker.text().substring(1).trim();
@@ -722,13 +687,7 @@ export class Blitz117Parser implements Parser {
             fields.push(...lineFields);
             while (this.toker.curr() == '\n') this.toker.next();
         }
-        if (this.toker.curr() != 'endtype') this.expecting("'Field' or 'End Type'");
         this.toker.next();
-        if (this.bbdoc.paramLines.size + this.bbdoc.returns.length > 0) this.diagnostics.get(this.uri)?.push({
-            message: 'Unsupported BBDoc keyword used for this type',
-            range: range,
-            severity: vscode.DiagnosticSeverity.Warning
-        });
         const type = {
             kind: 'type',
             ...ident,
@@ -736,41 +695,28 @@ export class Blitz117Parser implements Parser {
             range: new vscode.Range(pos, this.toker.range().start),
             declarationRange: range,
             uri: this.uri,
-            description: this.bbdoc.descLines.join('  \n'),
-            authors: this.bbdoc.authors,
-            since: this.bbdoc.since
-        };
-        this.bbdoc = {
-            descLines: [],
-            paramLines: new Map<string, string>(),
-            authors: [],
-            returns: '',
-            since: ''
         };
         return type;
     }
 
-    parseIf(scope: 'block' | 'fun'): any {
+    private parseIf(scope: 'block' | 'fun', context: bb.Variable[]): any {
         let expr, stmts, elseOpt;
-        expr = this.parseExpr(false);
+        expr = this.parseExpr(context);
         if (this.toker.curr() == 'then') this.toker.next();
         const blockIf = isTerm(this.toker.curr());
-        stmts = this.parseStmtSeq(blockIf ? scope == 'fun' ? 'fun' : 'block' : 'line');
+        stmts = this.parseStmtSeq(blockIf ? scope == 'fun' ? 'fun' : 'block' : 'line', context);
 
         if (this.toker.curr() == 'elseif') {
             // const range = this.toker.range();
             this.toker.next();
-            const ifNode = this.parseIf(scope);
+            const ifNode = this.parseIf(scope, context);
             // ifNode.range.start = range.start;
             elseOpt = [];
             elseOpt.push(ifNode);
         } else if (this.toker.curr() == 'else') {
             this.toker.next();
-            elseOpt = this.parseStmtSeq(blockIf ? scope == 'fun' ? 'fun' : 'block' : 'line');
+            elseOpt = this.parseStmtSeq(blockIf ? scope == 'fun' ? 'fun' : 'block' : 'line', context);
         }
-        if (blockIf) {
-            if (this.toker.curr() != 'endif') this.expecting("'ElseIf', 'Else If', 'Else', 'EndIf' or 'End If'");
-        } else if (this.toker.curr() != '\n') this.expecting('<eol>');
 
         return {
             kind: 'if',
@@ -781,45 +727,66 @@ export class Blitz117Parser implements Parser {
         };
     }
 
-    parseExprSeq() {
+    private parseExprSeq(context: bb.Variable[], fun?: bb.Function) {
         const expressions = [];
+        const paramStart = this.toker.range().start;
         let optional = true;
-        for (let e; e = this.parseExpr(optional);) {
+        for (let e, pos = 0; e = this.parseExpr(context); pos++) {
+            if (fun && pos < fun.params.length) {
+                const exprtag = e.kind.replace('.', e.type ?? '');
+                const paramtag = fun.params[pos].tag || '%';
+                const illegal = isIllegalTypeConversion(exprtag, paramtag);
+                if (exprtag && illegal) {
+                    this.diagnostics.get(this.uri)?.push({
+                        message: `Expression of type '${exprtag}' ${illegal == 1 ? 'should not' : 'cannot'} be implicitly converted to type '${paramtag}'`,
+                        range: e.range,
+                        severity: illegal == 1 ? vscode.DiagnosticSeverity.Warning : vscode.DiagnosticSeverity.Error
+                    });
+                }
+            }
             expressions.push(e);
             if (this.toker.curr() != ',') break;
             this.toker.next();
             optional = false;
         }
+        if (fun) {
+            const minParams = fun.params.filter(param => param.value === undefined).length;
+            if (expressions.length > fun.params.length || expressions.length < minParams) this.diagnostics.get(this.uri)?.push({
+                message: `Number of parameters is incorrect: expected ${fun.params.length != minParams ? `${minParams}-${fun.params.length}` : minParams}, got ${expressions.length}`,
+                range: new vscode.Range(paramStart, this.toker.range().start),
+                severity: vscode.DiagnosticSeverity.Error
+            });
+        }
         return expressions;
     }
 
-    parseExpr(optional: boolean): bb.Expression | undefined {
+    private parseExpr(context: bb.Variable[]): bb.Expression | undefined {
         const start = this.toker.range().start;
         if (this.toker.curr() == 'not') {
             this.toker.next();
-            const lhs = this.parseExpr1(false);
+            const lhs = this.parseExpr1(context);
             if (!lhs) return;
             const value = lhs.value == undefined ? undefined : lhs.value == 0;
             return {
                 kind: '?',
                 lhs: lhs,
-                value: value ? 1 : 0,
+                value: value,
                 range: new vscode.Range(start, this.toker.range().start),
                 uri: this.uri
             };
         }
-        return this.parseExpr1(optional);
+        return this.parseExpr1(context);
     }
 
-    parseExpr1(optional: boolean): bb.Expression | undefined {
+    private parseExpr1(context: bb.Variable[]): bb.Expression | undefined {
         const start = this.toker.range().start;
-        let lhs = this.parseExpr2(optional);
+        let lhs = this.parseExpr2(context);
         if (!lhs) return;
         for (; ;) {
             const c = this.toker.curr();
             if (c != 'and' && c != 'or' && c != 'xor') return lhs;
             this.toker.next();
-            const rhs = this.parseExpr2(false);
+            const rhs = this.parseExpr2(context);
             let value: number | undefined;
             if (lhs.value != undefined && rhs && rhs.value != undefined) {
                 if (lhs.kind != '%' && lhs.kind != '?') this.diagnostics.get(this.uri)?.push({
@@ -878,18 +845,18 @@ export class Blitz117Parser implements Parser {
         }
     }
 
-    parseExpr2(optional: boolean): bb.Expression | undefined {
+    private parseExpr2(context: bb.Variable[]): bb.Expression | undefined {
         const start = this.toker.range().start;
-        let lhs = this.parseExpr3(optional);
+        let lhs = this.parseExpr3(context);
         if (!lhs) return;
         for (; ;) {
             const c = this.toker.curr();
             if (c != '<' && c != '>' && c != '=' && c != 'le' && c != 'ge' && c != 'ne') return lhs;
             this.toker.next();
-            const rhs = this.parseExpr3(false);
+            const rhs = this.parseExpr3(context);
             let value: boolean | undefined;
             if (lhs.value != undefined && rhs && rhs.value != undefined) {
-                checkForArithmeticErrors(c, lhs, rhs, this.diagnostics.get(this.uri)!);
+                if (c != '=') checkForArithmeticErrors(c, lhs, rhs, this.diagnostics.get(this.uri)!);
                 switch (c) {
                     case '<':
                         value = lhs.value < rhs.value;
@@ -916,20 +883,21 @@ export class Blitz117Parser implements Parser {
                 lhs: lhs,
                 rhs: rhs,
                 range: new vscode.Range(start, this.toker.range().start),
-                uri: this.uri
+                uri: this.uri,
+                value: value
             };
         }
     }
 
-    parseExpr3(optional: boolean) {
+    private parseExpr3(context: bb.Variable[]): bb.Expression | undefined {
         const start = this.toker.range().start;
-        let lhs = this.parseExpr4(optional);
+        let lhs = this.parseExpr4(context);
         if (!lhs) return;
         for (; ;) {
             const c = this.toker.curr();
             if (c != '+' && c != '-') return lhs;
             this.toker.next();
-            const rhs = this.parseExpr4(false);
+            const rhs = this.parseExpr4(context);
             let value: any;
             if (lhs.value != undefined && rhs && rhs.value != undefined) {
                 checkForArithmeticErrors(c, lhs, rhs, this.diagnostics.get(this.uri)!);
@@ -940,7 +908,7 @@ export class Blitz117Parser implements Parser {
                 }
             }
             lhs = {
-                kind: '%', // TODO set type correctly
+                kind: getArithmeticType(lhs?.kind || '%', rhs?.kind || '%'),
                 lhs: lhs,
                 rhs: rhs,
                 range: new vscode.Range(start, this.toker.range().start),
@@ -950,15 +918,15 @@ export class Blitz117Parser implements Parser {
         }
     }
 
-    parseExpr4(optional: boolean) {
+    private parseExpr4(context: bb.Variable[]): bb.Expression | undefined {
         const start = this.toker.range().start;
-        let lhs = this.parseExpr5(optional);
+        let lhs = this.parseExpr5(context);
         if (!lhs) return;
         for (; ;) {
             const c = this.toker.curr();
             if (c != 'shl' && c != 'shr' && c != 'sar') return lhs;
             this.toker.next();
-            const rhs = this.parseExpr5(false);
+            const rhs = this.parseExpr5(context);
             let value: any;
             if (lhs.value != undefined && rhs && rhs.value != undefined) {
                 checkForArithmeticErrors(c, lhs, rhs, this.diagnostics.get(this.uri)!);
@@ -975,7 +943,7 @@ export class Blitz117Parser implements Parser {
                 }
             }
             lhs = {
-                kind: '%',
+                kind: '%', // TODO type check
                 lhs: lhs,
                 rhs: rhs,
                 range: new vscode.Range(start, this.toker.range().start),
@@ -985,15 +953,15 @@ export class Blitz117Parser implements Parser {
         }
     }
 
-    parseExpr5(optional: boolean) {
+    private parseExpr5(context: bb.Variable[]): bb.Expression | undefined {
         const start = this.toker.range().start;
-        let lhs = this.parseExpr6(optional);
+        let lhs = this.parseExpr6(context);
         if (!lhs) return;
         for (; ;) {
             const c = this.toker.curr();
             if (c != '*' && c != '/' && c != 'mod') return lhs;
             this.toker.next();
-            const rhs = this.parseExpr6(false);
+            const rhs = this.parseExpr6(context);
             let value: any;
             if (lhs.value != undefined && rhs && rhs.value != undefined) {
                 checkForArithmeticErrors(c, lhs, rhs, this.diagnostics.get(this.uri)!);
@@ -1010,7 +978,7 @@ export class Blitz117Parser implements Parser {
                 }
             }
             lhs = {
-                kind: '%', // TODO
+                kind: getArithmeticType(lhs.kind, rhs?.kind ?? '%'),
                 lhs: lhs,
                 rhs: rhs,
                 range: new vscode.Range(start, this.toker.range().start),
@@ -1020,15 +988,15 @@ export class Blitz117Parser implements Parser {
         }
     }
 
-    parseExpr6(optional: boolean): bb.Expression | undefined {
+    private parseExpr6(context: bb.Variable[]): bb.Expression | undefined {
         const start = this.toker.range().start;
-        let lhs = this.parseUniExpr(optional);
+        let lhs = this.parseUniExpr(context);
         if (!lhs) return;
         for (; ;) {
             const c = this.toker.curr();
             if (c != '^') return lhs;
             this.toker.next();
-            const rhs = this.parseUniExpr(false);
+            const rhs = this.parseUniExpr(context);
             let value: any;
             if (lhs.value != undefined && rhs && rhs.value != undefined) {
                 checkForArithmeticErrors(c, lhs, rhs, this.diagnostics.get(this.uri)!);
@@ -1045,17 +1013,18 @@ export class Blitz117Parser implements Parser {
         }
     }
 
-    parseUniExpr(optional: boolean): bb.Expression | undefined {
+    private parseUniExpr(context: bb.Variable[]): bb.Expression {
         let result: bb.Expression | undefined;
         let t;
         const c = this.toker.curr();
         const start = this.toker.range().start;
+        // TODO implement type checks
         switch (c) {
             case 'int':
                 if (this.toker.next() == '%') this.toker.next();
                 result = {
                     kind: '%',
-                    value: this.parseUniExpr(false)?.value,
+                    value: this.parseUniExpr(context)?.value,
                     range: new vscode.Range(start, this.toker.range().start),
                     uri: this.uri
                 };
@@ -1064,7 +1033,7 @@ export class Blitz117Parser implements Parser {
                 if (this.toker.next() == '#') this.toker.next();
                 result = {
                     kind: '#',
-                    value: this.parseUniExpr(false)?.value,
+                    value: this.parseUniExpr(context)?.value,
                     range: new vscode.Range(start, this.toker.range().start),
                     uri: this.uri
                 };
@@ -1073,24 +1042,25 @@ export class Blitz117Parser implements Parser {
                 if (this.toker.next() == '$') this.toker.next();
                 result = {
                     kind: '$',
-                    value: this.parseUniExpr(false)?.value?.toString(),
+                    value: this.parseUniExpr(context)?.value?.toString(),
                     range: new vscode.Range(start, this.toker.range().start),
                     uri: this.uri
                 };
                 break;
             case 'object':
-                if ((this.dialect == 'modern' && this.toker.next() == ':') || (this.dialect != 'modern' && this.toker.next() == '.')) this.toker.next();
+                if ((this.dialect == 'modern' && this.toker.curr() == ':') || (this.dialect != 'modern' && this.toker.curr() == '.')) this.toker.next();
                 t = this.parseIdent();
-                this.parseUniExpr(false);
+                this.parseUniExpr(context);
                 result = {
                     kind: '.',
+                    type: t.ident,
                     range: new vscode.Range(start, this.toker.range().start),
                     uri: this.uri
                 };
                 break;
             case 'handle':
                 this.toker.next();
-                this.parseUniExpr(false);
+                this.parseUniExpr(context);
                 result = {
                     kind: '%',
                     range: new vscode.Range(start, this.toker.range().start),
@@ -1098,66 +1068,119 @@ export class Blitz117Parser implements Parser {
                 };
                 break;
             case 'before':
-                this.toker.next();
-                this.parseUniExpr(false);
-                result = {
-                    kind: '.',
-                    range: new vscode.Range(start, this.toker.range().start),
-                    uri: this.uri
-                };
-                break;
+                {
+                    this.toker.next();
+                    const expr = this.parseUniExpr(context);
+                    if (expr.kind != '.') this.diagnostics.get(this.uri)?.push({
+                        message: `Variable of type '${expr.kind}' cannot be used in 'Before' expression`,
+                        range: expr.range,
+                        severity: vscode.DiagnosticSeverity.Error
+                    });
+                    result = {
+                        kind: '.',
+                        type: expr.type || '',
+                        range: new vscode.Range(start, this.toker.range().start),
+                        uri: this.uri
+                    };
+                    break;
+                }
             case 'after':
                 this.toker.next();
-                this.parseUniExpr(false);
+                const expr = this.parseUniExpr(context);
+                if (expr.kind != '.') this.diagnostics.get(this.uri)?.push({
+                    message: `Variable of type '${expr.kind}' cannot be used in 'After' expression`,
+                    range: expr.range,
+                    severity: vscode.DiagnosticSeverity.Error
+                });
                 result = {
                     kind: '.',
+                    type: expr.type || '',
                     range: new vscode.Range(start, this.toker.range().start),
                     uri: this.uri
                 };
                 break;
             case '+':
+                {
+                    this.toker.next();
+                    const expr = this.parseUniExpr(context);
+                    result = {
+                        kind: expr?.kind || '%',
+                        value: expr?.value ? +expr.value : undefined,
+                        range: new vscode.Range(start, this.toker.range().start),
+                        uri: this.uri
+                    };
+                    break;
+                }
             case '-':
+                {
+                    this.toker.next();
+                    const expr = this.parseUniExpr(context);
+                    result = {
+                        kind: expr?.kind || '%',
+                        value: expr?.value ? -expr.value : undefined,
+                        range: new vscode.Range(start, this.toker.range().start),
+                        uri: this.uri
+                    };
+                    break;
+                }
             case 'abs':
+                {
+                    this.toker.next();
+                    const expr = this.parseUniExpr(context);
+                    result = {
+                        kind: expr?.kind || '%',
+                        value: expr?.value ? Math.abs(expr.value) : undefined,
+                        range: new vscode.Range(start, this.toker.range().start),
+                        uri: this.uri
+                    };
+                    break;
+                }
             case 'sgn':
-                this.toker.next();
-                const expr = this.parseUniExpr(false);
-                result = {
-                    kind: expr?.kind || '%',
-                    value: expr?.value, // value calculated at analyze stage
-                    range: new vscode.Range(start, this.toker.range().start),
-                    uri: this.uri
-                };
-                break;
+                {
+                    this.toker.next();
+                    const expr = this.parseUniExpr(context);
+                    result = {
+                        kind: expr?.kind || '%',
+                        value: expr?.value ? Math.sign(expr.value) : undefined,
+                        range: new vscode.Range(start, this.toker.range().start),
+                        uri: this.uri
+                    };
+                    break;
+                }
             case '~':
                 this.toker.next();
                 result = {
                     kind: '%',
-                    lhs: this.parseUniExpr(false),
+                    lhs: this.parseUniExpr(context),
                     range: new vscode.Range(start, this.toker.range().start),
-                    uri: this.uri // value calculated at analyze stage
+                    uri: this.uri // TODO set value
                 };
                 break;
             default:
-                result = this.parsePrimary(optional);
+                result = this.parsePrimary(context);
                 break;
         }
-        return result;
+        return result!;
     }
 
-    parsePrimary(optional: boolean): bb.Expression | undefined {
+    private parsePrimary(context: bb.Variable[]): bb.Expression | undefined {
         const start = this.toker.range().start;
-        let expression, t, ident, tag, result: bb.Expression | undefined;
+        let expression, t: bb.Ident, tag, result: bb.Expression | undefined;
         switch (this.toker.curr()) {
             case '(':
                 this.toker.next();
-                expression = this.parseExpr(false);
-                if (this.toker.curr() != ')') this.expecting("')'");
-                else this.toker.next();
+                expression = this.parseExpr(context);
+                if (this.toker.curr() == ')') this.toker.next();
                 result = expression;
                 break;
             case 'new':
                 this.toker.next();
                 t = this.parseIdent();
+                if (!this.structs.find(type => type.ident == t.ident)) this.diagnostics.get(this.uri)?.push({
+                    message: `Unknown type '${t.name}'`,
+                    range: this.toker.range(),
+                    severity: vscode.DiagnosticSeverity.Error
+                });
                 result = {
                     kind: '.',
                     type: t.ident,
@@ -1168,6 +1191,11 @@ export class Blitz117Parser implements Parser {
             case 'first':
                 this.toker.next();
                 t = this.parseIdent();
+                if (!this.structs.find(type => type.ident == t.ident)) this.diagnostics.get(this.uri)?.push({
+                    message: `Unknown type '${t.name}'`,
+                    range: this.toker.range(),
+                    severity: vscode.DiagnosticSeverity.Error
+                });
                 result = {
                     kind: '.',
                     type: t.ident,
@@ -1178,6 +1206,11 @@ export class Blitz117Parser implements Parser {
             case 'last':
                 this.toker.next();
                 t = this.parseIdent();
+                if (!this.structs.find(type => type.ident == t.ident)) this.diagnostics.get(this.uri)?.push({
+                    message: `Unknown type '${t.name}'`,
+                    range: this.toker.range(),
+                    severity: vscode.DiagnosticSeverity.Error
+                });
                 result = {
                     kind: '.',
                     type: t.ident,
@@ -1188,6 +1221,7 @@ export class Blitz117Parser implements Parser {
             case 'null':
                 result = {
                     kind: '.',
+                    type: 'null',
                     range: new vscode.Range(start, this.toker.range().end),
                     uri: this.uri
                 };
@@ -1223,7 +1257,7 @@ export class Blitz117Parser implements Parser {
             case 'binconst':
                 result = {
                     kind: '%',
-                    value: parseInt(this.toker.text(), 2),
+                    value: parseInt(this.toker.text().substring(1), 2),
                     range: new vscode.Range(start, this.toker.range().end),
                     uri: this.uri
                 };
@@ -1232,7 +1266,7 @@ export class Blitz117Parser implements Parser {
             case 'hexconst':
                 result = {
                     kind: '%',
-                    value: parseInt(this.toker.text(), 16),
+                    value: parseInt(this.toker.text().substring(1), 16),
                     range: new vscode.Range(start, this.toker.range().end),
                     uri: this.uri
                 };
@@ -1266,28 +1300,54 @@ export class Blitz117Parser implements Parser {
                 this.toker.next();
                 break;
             case 'ident':
-                ident = this.parseIdent();
-                tag = this.parseTypeTag(); // TODO convert to kind
-                if (this.toker.curr() == '(' && !this.arrayDecls.has(ident.ident)) {
+                const pos = this.toker.range();
+                t = this.parseIdent();
+                tag = this.parseTypeTag();
+                if (this.toker.curr() == '(' && !this.arrayDecls.has(t.ident)) {
+                    const fun = this.funcs.concat(userLibs).find(fun => fun.ident == t.ident);
+                    if (!fun && !isBuiltinBlitzFunction(t.ident)) this.diagnostics.get(this.uri)?.push({
+                        message: `Unknown function '${t.name}'`,
+                        range: pos,
+                        severity: vscode.DiagnosticSeverity.Error
+                    });
+                    // const stub = stubs.find(s => s.name.toLowerCase() == t.ident);
+                    // TODO embed return types in stubs
                     this.toker.next();
-                    this.parseExprSeq();
-                    if (this.toker.curr() != ')') this.expecting("')'");
+                    this.parseExprSeq(context, fun);
                     this.toker.next();
-                    result = {
-                        kind: '.', // TODO get return value
+                    if ((!tag && fun) || (tag == '%' && fun?.tag == '?')) tag = fun.tag;
+                    if (['?', '%', '#', '$'].includes(tag)) result = {
+                        ...fun,
+                        kind: tag as bb.ExpressionKind,
+                        range: new vscode.Range(start, this.toker.range().end),
+                        uri: this.uri
+                    };
+                    else result = {
+                        ...fun,
+                        kind: '.',
                         type: tag,
                         range: new vscode.Range(start, this.toker.range().end),
                         uri: this.uri
                     };
                 } else {
-                    result = { ...this.parseVar(ident, tag, this.dialect != 'classic'), kind: '.' };
+                    const variable = this.parseVar(false, context, t, tag, pos);
+                    if (!tag || (tag == '%' && variable.tag == '?') || variable.kind == 'field') tag = variable.tag || '%';
+                    if (['?', '%', '#', '$'].includes(tag)) result = { ...variable, kind: tag as bb.ExpressionKind };
+                    else result = { ...variable, kind: '.', type: tag };
                 }
                 break;
             default:
-                if (!optional) this.expecting('expression');
+            // if (!optional) this.expecting('expression');
         }
         return result;
     }
+}
+
+function getArithmeticType(lhs: string, rhs: string): '%' | '#' | '$' {
+    if (lhs == '%' && rhs == '%') return '%';
+    if (lhs == '#' || rhs == '#') return '#';
+    if (lhs == '$' || rhs == '$') return '$';
+    return '%';
 }
 
 function checkForArithmeticErrors(c: string, lhs: bb.Expression, rhs: bb.Expression, diagnostics: vscode.Diagnostic[]) {
@@ -1299,7 +1359,7 @@ function checkForArithmeticErrors(c: string, lhs: bb.Expression, rhs: bb.Express
         });
     } else if (lhs.kind == '?') {
         diagnostics.push({
-            message: 'Converting logical value to numeric',
+            message: `Converting logical value to numeric (${rhs.kind})`,
             range: lhs.range,
             severity: vscode.DiagnosticSeverity.Warning
         });
@@ -1312,7 +1372,7 @@ function checkForArithmeticErrors(c: string, lhs: bb.Expression, rhs: bb.Express
         });
     } else if (rhs.kind == '?') {
         diagnostics.push({
-            message: 'Converting logical value to numeric',
+            message: `Converting logical value to numeric (${lhs.kind})`,
             range: rhs.range,
             severity: vscode.DiagnosticSeverity.Warning
         });

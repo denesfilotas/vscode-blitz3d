@@ -3,13 +3,15 @@ import { readdirSync, readFileSync } from 'fs';
 import * as path from 'path';
 import { env } from 'process';
 import * as vscode from 'vscode';
-import { showErrorOnCompile } from '../debug/compilation';
+import updateTodos from '../debug/todos';
+import { statusBarItem } from '../extension';
+import { removeType } from '../util/functions';
 import { DeclToker } from '../util/toker';
 import { Analyzer, getAnalyzer } from './analyzers/analyzer';
 import { semanticErrors, syntaxErrors, userLibErrors } from './diagnostics';
-import { Parser, getParser } from './parsers/parser';
+import { getParser, Parser } from './parsers/parser';
 import * as bb from './types';
-import { removeType } from '../util/functions';
+import compile, { showErrorOnCompile } from '../debug/compilation';
 
 export let userLibs: bb.Function[] = [];
 export let blitzpath: string = vscode.workspace.getConfiguration('blitz3d.installation').get('BlitzPath') || env['BLITZPATH'] || '';
@@ -20,25 +22,44 @@ export let parser: Parser;
 export let parsed: bb.ParseResult;
 export let analyzer: Analyzer;
 export let analyzed: bb.AnalyzeResult;
+export let compilerVersion = 'loading...';
+export let runtimeFlavour = 'lodading...';
 
 export function updateBlitzPath(notify: boolean) {
     const config: string | undefined = vscode.workspace.getConfiguration('blitz3d.installation').get('BlitzPath');
     blitzpath = config || env['blitzpath'] || '';
     blitzCmd = blitzpath.length > 0 ? '"' + path.join(blitzpath, 'bin', process.platform === 'win32' ? 'blitzcc.exe' : 'blitzcc') + '"' : 'blitzcc';
-    if (blitzpath.length > 0) env['blitzpath'] = blitzpath;
-    cp.exec(blitzCmd, {env}, (err, stdout, stderr) => {
-        if (err) showErrorOnCompile(stdout, stderr);
+    const blitzEnv = {
+        'BLITZPATH': blitzpath,
+        'PATH': path.join(blitzpath, 'bin') + path.sep + env['PATH']
+    };
+
+    const installationConfig = vscode.workspace.getConfiguration('blitz3d.installation');
+    cp.exec(`${blitzCmd} -v`, { env: blitzEnv }, (err, stdout, stderr) => {
+        if (err || stderr) showErrorOnCompile(stdout, stderr);
         else if (notify) vscode.window.showInformationMessage('BlitzPath updated.');
-    });
-    // detect functions
-    cp.exec(`${blitzCmd} -k`, {env}, (err, stdout, stderr) => {
-        if (err || stderr) builtinFunctions = [];
-        builtinFunctions = stdout.split(/\r\n|\r|\n/);
-        builtinFunctionsLower = stdout.toLowerCase().split(/\r\n|\r|\n/);
+        const compilerMatch = stdout.match(/compiler version:([0-9.]+)(:(.*))?/i);
+        compilerVersion = compilerMatch?.[1] || installationConfig.get('SyntaxVersion') || '11.18';
+        const runtimeMatch = stdout.match(/runtime version:([0-9.]+)(:(.*))?/i);
+        const runtimeVersion = runtimeMatch?.[1] || '11.18';
+        runtimeFlavour = runtimeMatch?.[3] || installationConfig.get('RuntimeFlavor') || 'B3D';
+        console.debug(compilerVersion, runtimeVersion, runtimeFlavour);
+        console.debug(stdout);
+        statusBarItem.text = `Blitz3D v${compilerVersion} (${runtimeFlavour})`;
+        statusBarItem.show();
         const document = vscode.window.activeTextEditor?.document;
-        if (document) updateContext(document);
+        // detect functions
+        cp.exec(`${blitzCmd} -k`, { env: blitzEnv }, (err, stdout, stderr) => {
+            if (err || stderr) builtinFunctions = [];
+            builtinFunctions = stdout.split(/\r\n|\r|\n/);
+            builtinFunctionsLower = stdout.toLowerCase().split(/\r\n|\r|\n/);
+            if (document) {
+                updateContext(document);
+                updateTodos(document);
+                compile(document);
+            }
+        });
     });
-    // TODO detect version and runtime
 }
 
 export function createLaunchContext() {

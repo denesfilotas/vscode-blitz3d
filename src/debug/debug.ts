@@ -4,6 +4,7 @@ import * as cp from 'child_process';
 import * as treekill from 'tree-kill';
 import * as vscode from 'vscode';
 import { blitzCmd, blitzpath } from '../context/context';
+import path = require('path');
 
 export default class DebugAdapterDescriptorFactory implements vscode.DebugAdapterDescriptorFactory {
     createDebugAdapterDescriptor(session: vscode.DebugSession, executable: vscode.DebugAdapterExecutable | undefined): vscode.ProviderResult<vscode.DebugAdapterDescriptor> {
@@ -28,8 +29,11 @@ class DebugAdapter extends DebugSession {
     protected launchRequest(response: DebugProtocol.LaunchResponse, args: BlitzLaunchRequestArguments, request?: DebugProtocol.Request | undefined): void {
         const cmd = `${blitzCmd} ${args.noDebug ? ' ' : ' -d '} "${args.bbfile}"`;
         const env = process.env;
-        if (blitzpath.length > 0) env['BLITZPATH'] = blitzpath;
-        this.debugProcess = cp.exec(cmd, {env});
+        const blitzEnv = {
+            'BLITZPATH': blitzpath,
+            'PATH': path.join(blitzpath, 'bin') + path.sep + env['PATH']
+        };
+        this.debugProcess = cp.exec(cmd, { env: blitzEnv });
         this.debugProcess.addListener('exit', code => this.sendEvent(new ExitedEvent(code ? code : 0)));
         this.debugProcess.addListener('close', () => this.sendEvent(new TerminatedEvent(false)));
         this.debugProcess.addListener('error', err => this.sendEvent(new OutputEvent('[ERROR] ' + err, 'console')));

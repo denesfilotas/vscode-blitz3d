@@ -7,7 +7,7 @@ import { obtainWorkingDir } from '../context';
 import * as bb from '../types';
 import { Parser } from './parser';
 
-export class Blitz117Parser implements Parser {
+export class Blitz118Parser implements Parser {
 
     uri: vscode.Uri;
     workdir: string;
@@ -62,7 +62,7 @@ export class Blitz117Parser implements Parser {
             range: this.toker.range(),
             message: `Syntax error: expecting ${thing}, got ${this.toker.curr().replace('\n', '<eol>')}`,
             severity: vscode.DiagnosticSeverity.Error,
-            source: 'v1.117 Parser'
+            source: 'v1.118 Parser'
         });
     }
 
@@ -71,7 +71,7 @@ export class Blitz117Parser implements Parser {
             range: this.toker.range(),
             message: 'Syntax error: ' + message,
             severity: vscode.DiagnosticSeverity.Error,
-            source: 'v1.117 Parser'
+            source: 'v1.118 Parser'
         });
     }
 

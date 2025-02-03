@@ -213,7 +213,19 @@ export class Blitz118Parser implements Parser {
                 case 'ident':
                     {
                         const ident = this.parseIdent();
-                        const tag = this.parseTypeTag();
+                        let tag: string = '';
+                        if (this.dialect == 'modern') {
+                            if (this.toker.curr() == ':') {
+                                if (this.toker.lookAhead(1) == 'ident' && this.toker.lookAhead(2) == '=') {
+                                    this.toker.next();
+                                    tag = this.parseIdent().ident;
+                                }
+                            } else {
+                                tag = this.parseTypeTag();
+                            }
+                        } else {
+                            tag = this.parseTypeTag();
+                        }
                         const isDot = (this.dialect == 'modern' && this.toker.curr() == '.') || (this.dialect != 'modern' && this.toker.curr() == '\\');
                         if (!this.arrayDecls.has(ident.ident) && this.toker.curr() != '=' && !isDot && this.toker.curr() != '[') {
                             let exprs;
@@ -504,12 +516,19 @@ export class Blitz118Parser implements Parser {
             case '$':
                 this.toker.next();
                 return '$';
+            case ':':
+                if (this.dialect != 'modern') break;
+                this.toker.next();
+                if (this.toker.curr() == 'int') { this.toker.next(); return '%'; }
+                if (this.toker.curr() == 'float') { this.toker.next(); return '#'; }
+                if (this.toker.curr() == 'str') { this.toker.next(); return '$'; }
+                return this.parseIdent().ident;
+            case '.':
+                if (this.dialect == 'modern') break;
+                this.toker.next();
+                return this.parseIdent().ident;
         }
-        if ((this.dialect == 'modern' && this.toker.curr() == ':') || (this.dialect != 'modern' && this.toker.curr() == '.')) {
-            this.toker.next();
-            return this.parseIdent().ident;
-        }
-        return "";
+        return '';
     }
 
     parseVar(ident?: bb.Ident, tag?: string, mustExist = true): bb.Variable {

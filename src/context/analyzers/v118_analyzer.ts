@@ -146,7 +146,19 @@ export class Blitz118Analyzer implements Analyzer {
                     {
                         const ident = this.parseIdent();
                         const trange = this.toker.range();
-                        const tag = this.parseTypeTag();
+                        let tag: string = '';
+                        if (this.dialect == 'modern') {
+                            if (this.toker.curr() == ':') {
+                                if (this.toker.lookAhead(1) == 'ident' && this.toker.lookAhead(2) == '=') {
+                                    this.toker.next();
+                                    tag = this.parseIdent().ident;
+                                }
+                            } else {
+                                tag = this.parseTypeTag();
+                            }
+                        } else {
+                            tag = this.parseTypeTag();
+                        }
                         if (tag && !'%#$'.includes(tag) && !this.structs.find(type => type.ident == tag)) this.diagnostics.get(this.uri)?.push({
                             message: `Unknown type '${tag}'`,
                             range: new vscode.Range(trange.end, this.toker.range().start),
@@ -473,12 +485,19 @@ export class Blitz118Analyzer implements Analyzer {
             case '$':
                 this.toker.next();
                 return '$';
+            case ':':
+                if (this.dialect != 'modern') break;
+                this.toker.next();
+                if (this.toker.curr() == 'int') { this.toker.next(); return '%'; }
+                if (this.toker.curr() == 'float') { this.toker.next(); return '#'; }
+                if (this.toker.curr() == 'str') { this.toker.next(); return '$'; }
+                return this.parseIdent().ident;
+            case '.':
+                if (this.dialect == 'modern') break;
+                this.toker.next();
+                return this.parseIdent().ident;
         }
-        if ((this.dialect == 'modern' && this.toker.curr() == ':') || (this.dialect != 'modern' && this.toker.curr() == '.')) {
-            this.toker.next();
-            return this.parseIdent().ident;
-        }
-        return "";
+        return '';
     }
 
     private parseVar(allowImplicit: boolean, context: bb.Variable[], ident?: bb.Ident, tag?: string, range?: vscode.Range): bb.Variable {
@@ -492,7 +511,7 @@ export class Blitz118Analyzer implements Analyzer {
             this.diagnostics.get(this.uri)?.push({
                 message: 'Implicit variable declaration',
                 range: range!,
-                severity: vscode.DiagnosticSeverity.Hint
+                severity: this.dialect == 'secure' ? vscode.DiagnosticSeverity.Error : vscode.DiagnosticSeverity.Hint
             });
         }
         const illegal = isIllegalTypeConversion(variable?.tag || '%', tag || '%');

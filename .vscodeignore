@@ -4,7 +4,7 @@
 tsconfig.json
 stubs.bb
 *.vsix
-node_modules/**
+node_modules
 src/**
-out/extension.js.map
+**/*.map
 TODO

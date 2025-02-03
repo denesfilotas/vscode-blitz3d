@@ -3,6 +3,12 @@
 All major and minor version changes are listed here. Patch version changes should only contain bugfixes.
  > To see all changes in code since the first published version, check out the [GitHub repository](https://github.com/denesfilotas/vscode-blitz3d).
 
+## 0.9.3 (pre-release)
+
+- Initial support for modern Blitz3D up to version 1.117
+- Dynamic function list generation (for LibSGD and custom builds)
+- Support for multiple versions (ux will be revamped later)
+
 ## 0.9.2 (pre-release)
 
 - Bugfixes regarding includes (by [@Aryan807](https://github.com/Aryan807))

@@ -1,5 +1,7 @@
 # Language support for Blitz3D
 
+> I would like to express my sincere condolences on the death of Mark Sibly, the author of Blitz3D. May he Rest In Peace.
+
 This extension enables language support for the BlitzBasic language and extends the usage of the Blitz3D program and its `blitzcc` compiler.
 Standalone parsing and type checking is implemented based on [the original Blitz3D source code](https://github.com/blitz-research/blitz3d_soloud) which is released under the zlib/libpng license by Blitz Research Ltd.
 
@@ -9,9 +11,8 @@ Standalone parsing and type checking is implemented based on [the original Blitz
 
 > To see all the changes, check the [changelog](CHANGELOG.md) or the [GitHub repository](https://github.com/denesfilotas/vscode-blitz3d).
 
-- Initial support for modern Blitz3D up to version 1.117
-- Dynamic function list generation (for LibSGD and custom builds)
-- Support for multiple versions (ux will be revamped later)
+- automatic version detection
+- support for Blitz3D 1.118
 
 ## Features
 

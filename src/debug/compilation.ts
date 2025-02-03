@@ -39,8 +39,8 @@ function blitzcc(uri: vscode.Uri) {
     // run compiler with env got from config
     const env = process.env;
     const blitzEnv = {
-        'BLITZPATH': blitzpath,
-        'PATH': path.join(blitzpath, 'bin') + path.sep + env['PATH']
+        'blitzpath': blitzpath,
+        'PATH': path.join(blitzpath, 'bin') + path.delimiter + env['PATH']
     }
     cp.exec(`${blitzCmd} -c "${uri.path.substring(process.platform === 'win32' ? 1 : 0)}"`, { env: blitzEnv }, (err, sout, serr) => {
         if (err) {

@@ -30,8 +30,8 @@ class DebugAdapter extends DebugSession {
         const cmd = `${blitzCmd} ${args.noDebug ? ' ' : ' -d '} "${args.bbfile}"`;
         const env = process.env;
         const blitzEnv = {
-            'BLITZPATH': blitzpath,
-            'PATH': path.join(blitzpath, 'bin') + path.sep + env['PATH']
+            'blitzpath': blitzpath,
+            'PATH': path.join(blitzpath, 'bin') + path.delimiter + env['PATH']
         };
         this.debugProcess = cp.exec(cmd, { env: blitzEnv });
         this.debugProcess.addListener('exit', code => this.sendEvent(new ExitedEvent(code ? code : 0)));

@@ -14,7 +14,7 @@ import * as bb from './types';
 import compile, { showErrorOnCompile } from '../debug/compilation';
 
 export let userLibs: bb.Function[] = [];
-export let blitzpath: string = vscode.workspace.getConfiguration('blitz3d.installation').get('BlitzPath') || env['BLITZPATH'] || '';
+export let blitzpath: string = vscode.workspace.getConfiguration('blitz3d.installation').get('BlitzPath') || env['blitzpath'] || '';
 export let blitzCmd = blitzpath.length > 0 ? '"' + path.join(blitzpath, 'bin', process.platform === 'win32' ? 'blitzcc.exe' : 'blitzcc') + '"' : 'blitzcc';
 export let builtinFunctions: string[] = [];
 export let builtinFunctionsLower: string[] = [];
@@ -30,8 +30,8 @@ export function updateBlitzPath(notify: boolean) {
     blitzpath = config || env['blitzpath'] || '';
     blitzCmd = blitzpath.length > 0 ? '"' + path.join(blitzpath, 'bin', process.platform === 'win32' ? 'blitzcc.exe' : 'blitzcc') + '"' : 'blitzcc';
     const blitzEnv = {
-        'BLITZPATH': blitzpath,
-        'PATH': path.join(blitzpath, 'bin') + path.sep + env['PATH']
+        'blitzpath': blitzpath,
+        'PATH': path.join(blitzpath, 'bin') + path.delimiter + env['PATH']
     };
 
     const installationConfig = vscode.workspace.getConfiguration('blitz3d.installation');
@@ -99,7 +99,7 @@ function loadUserLibs(): bb.DeclParseResult {
         funcs: [],
         diagnostics: new Map<vscode.Uri, vscode.Diagnostic[]>()
     };
-    const basePath = blitzpath || process.env.BLITZPATH;
+    const basePath = blitzpath || process.env.blitzpath;
     if (!basePath) return r;
     let decls: any[] = [];
     try {

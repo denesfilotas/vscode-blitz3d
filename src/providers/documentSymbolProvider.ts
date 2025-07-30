@@ -64,6 +64,10 @@ export default class DocumentSymbolProvider implements vscode.DocumentSymbolProv
             if (label.uri.path != document.uri.path) continue;
             symbols.push(new vscode.DocumentSymbol(label.name, '', vscode.SymbolKind.String, label.range, label.declarationRange));
         }
+        for (const [_, arr] of parsed.arrayDecls) {
+            if (arr.uri.path != document.uri.path) continue;
+            symbols.push(new vscode.DocumentSymbol(arr.name, arr.tag, vscode.SymbolKind.Array, arr.range, arr.declarationRange));
+        }
         return symbols;
     }
 

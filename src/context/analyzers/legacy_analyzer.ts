@@ -116,13 +116,7 @@ export class BlitzLegacyAnalyzer implements Analyzer {
                 case 'ident':
                     {
                         const ident = this.parseIdent();
-                        const trange = this.toker.range();
                         const tag = this.parseTypeTag();
-                        if (tag && !'%#$'.includes(tag) && !this.structs.find(type => type.ident == tag)) this.diagnostics.get(this.uri)?.push({
-                            message: `Unknown type '${tag}'`,
-                            range: new vscode.Range(trange.end, this.toker.range().start),
-                            severity: vscode.DiagnosticSeverity.Error
-                        });
                         if (!this.arrayDecls.has(ident.ident) && this.toker.curr() != '=' && this.toker.curr() != '\\' && this.toker.curr() != '[') {
                             const fun = this.funcs.concat(userLibs).find(fun => fun.ident == ident.ident);
                             if (!isBuiltinBlitzFunction(ident.ident) && !fun) this.diagnostics.get(this.uri)?.push({
@@ -444,7 +438,14 @@ export class BlitzLegacyAnalyzer implements Analyzer {
                 return '$';
             case '.':
                 this.toker.next();
-                return this.parseIdent().ident;
+                const trange = this.toker.range();
+                const t = this.parseIdent();
+                if (t.ident && !this.structs.find(type => type.ident == t.ident)) this.diagnostics.get(this.uri)?.push({
+                    message: `Unknown type '${t.name}'`,
+                    range: new vscode.Range(trange.start, this.toker.range().start),
+                    severity: vscode.DiagnosticSeverity.Error
+                });
+                return t.ident;
             default:
                 return '';
         }
@@ -532,11 +533,6 @@ export class BlitzLegacyAnalyzer implements Analyzer {
         const ident = this.parseIdent();
         const trange = this.toker.range();
         let tag = this.parseTypeTag() || '%';
-        if (!'%#$'.includes(tag) && !this.structs.find(type => type.ident == tag)) this.diagnostics.get(this.uri)?.push({
-            message: `Unknown type '${tag}'`,
-            range: new vscode.Range(trange.end, this.toker.range().start),
-            severity: vscode.DiagnosticSeverity.Error
-        });
         if (this.toker.curr() == '[') {
             // if (constant) this.exception('Blitz arrays cannot be constant');
             this.toker.next();
@@ -1144,10 +1140,11 @@ export class BlitzLegacyAnalyzer implements Analyzer {
                 break;
             case 'new':
                 this.toker.next();
+                const trange = this.toker.range();
                 t = this.parseIdent();
                 if (!this.structs.find(type => type.ident == t.ident)) this.diagnostics.get(this.uri)?.push({
                     message: `Unknown type '${t.name}'`,
-                    range: this.toker.range(),
+                    range: new vscode.Range(trange.start, this.toker.range().start),
                     severity: vscode.DiagnosticSeverity.Error
                 });
                 result = {

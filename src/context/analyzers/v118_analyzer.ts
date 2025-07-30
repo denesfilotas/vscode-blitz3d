@@ -152,6 +152,11 @@ export class Blitz118Analyzer implements Analyzer {
                                 if (this.toker.lookAhead(1) == 'ident' && this.toker.lookAhead(2) == '=') {
                                     this.toker.next();
                                     tag = this.parseIdent().ident;
+                                    if (tag && !'%#$'.includes(tag) && !this.structs.find(type => type.ident == tag)) this.diagnostics.get(this.uri)?.push({
+                                        message: `Unknown type '${tag}'`,
+                                        range: new vscode.Range(trange.end, this.toker.range().start),
+                                        severity: vscode.DiagnosticSeverity.Error
+                                    });
                                 }
                             } else {
                                 tag = this.parseTypeTag();
@@ -159,11 +164,6 @@ export class Blitz118Analyzer implements Analyzer {
                         } else {
                             tag = this.parseTypeTag();
                         }
-                        if (tag && !'%#$'.includes(tag) && !this.structs.find(type => type.ident == tag)) this.diagnostics.get(this.uri)?.push({
-                            message: `Unknown type '${tag}'`,
-                            range: new vscode.Range(trange.end, this.toker.range().start),
-                            severity: vscode.DiagnosticSeverity.Error
-                        });
                         const isDot = (this.dialect == 'modern' && this.toker.curr() == '.') || (this.dialect != 'modern' && this.toker.curr() == '\\');
                         if (!this.arrayDecls.has(ident.ident) && this.toker.curr() != '=' && !isDot && this.toker.curr() != '[') {
                             const fun = this.funcs.concat(userLibs).find(fun => fun.ident == ident.ident);
@@ -495,7 +495,16 @@ export class Blitz118Analyzer implements Analyzer {
             case '.':
                 if (this.dialect == 'modern') break;
                 this.toker.next();
-                return this.parseIdent().ident;
+                const trange = this.toker.range();
+                const t = this.parseIdent();
+                if (t.ident && !this.structs.find(type => type.ident == t.ident)) {
+                    this.diagnostics.get(this.uri)?.push({
+                        message: `Unknown type '${t.name}'`,
+                        range: new vscode.Range(trange.end, this.toker.range().start),
+                        severity: vscode.DiagnosticSeverity.Error
+                    });
+                }
+                return t.ident;
         }
         return '';
     }
@@ -580,13 +589,7 @@ export class Blitz118Analyzer implements Analyzer {
     private parseVarDecl(kind: 'local' | 'global' | 'param' | 'field', constant: boolean, context: bb.Variable[], start: vscode.Position): bb.Variable {
         const range = this.toker.range();
         const ident = this.parseIdent();
-        const trange = this.toker.range();
         let tag = this.parseTypeTag() || '%';
-        if (!'%#$'.includes(tag) && !this.structs.find(type => type.ident == tag)) this.diagnostics.get(this.uri)?.push({
-            message: `Unknown type '${tag}'`,
-            range: new vscode.Range(trange.end, this.toker.range().start),
-            severity: vscode.DiagnosticSeverity.Error
-        });
         if (this.toker.curr() == '[') {
             // if (constant) this.exception('Blitz arrays cannot be constant');
             this.toker.next();

@@ -172,7 +172,6 @@ export default class CompletionItemProvider implements vscode.CompletionItemProv
             const isKw = isBlitzKeyword(kwname.split(' ')[0]);
             const stub = stubs.find(s => s.name.toLowerCase() == kwname.toLowerCase());
             let ci = new vscode.CompletionItem({ label: stub?.name || kwname, detail: stub?.declaration.substring(8).includes('(') ? '()' : '' }, isKw ? vscode.CompletionItemKind.Keyword : vscode.CompletionItemKind.Function);
-            if (kwname == 'dim') ci.insertText = new vscode.SnippetString('Dim ${1:array_name}(${0:maxindex0...})');
             if (stub) {
                 ci.documentation = new vscode.MarkdownString(stub.description.join('  \n'));
                 if (useSnippets) {
@@ -190,6 +189,7 @@ export default class CompletionItemProvider implements vscode.CompletionItemProv
             } else {
                 ci.documentation = '(from library) No documentation available'
             }
+            if (kwname.toLowerCase() == 'dim') ci.insertText = new vscode.SnippetString('Dim ${1:array_name}(${0:maxindex0...})');
             r.push(ci);
         }
         return new vscode.CompletionList(r);

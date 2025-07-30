@@ -90,6 +90,12 @@ export class Blitz118Parser implements Parser {
         this.globals = this.globals.filter(global => global.uri.path != uri.path);
         this.labels = this.labels.filter(label => label.uri.path != uri.path);
         this.structs = this.structs.filter(type => type.uri.path != uri.path);
+        const dimmedArrays = new Map<string, bb.DimmedArray>();
+        for (const [ident, array] of this.arrayDecls) {
+            if (array.uri.path != uri.path) dimmedArrays.set(ident, array);
+        }
+        this.arrayDecls = dimmedArrays;
+
 
         this.parseStmtSeq('prog');
         if (this.toker.curr() != 'eof') this.expecting('<eof>');

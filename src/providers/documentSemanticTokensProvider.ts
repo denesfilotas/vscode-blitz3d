@@ -16,7 +16,7 @@ let tokens: IParsedToken[] = [];
 
 export const legend = (function () {
     const tokenTypesLegend = [
-        'comment', 'string', 'keyword', 'number', 'operator', 'type', 'typeParameter', 'function', 'variable', 'parameter', 'property', 'field'
+        'comment', 'string', 'keyword', 'number', 'operator', 'type', 'typeParameter', 'function', 'variable', 'parameter', 'property', 'field', 'array'
     ];
     tokenTypesLegend.forEach((tokenType, index) => tokenTypes.set(tokenType, index));
 
@@ -29,8 +29,10 @@ export const legend = (function () {
 })();
 
 export default class BlitzSemanticTokensProvider implements vscode.DocumentSemanticTokensProvider {
+    static arrayTokenType: string = '';
 
     async provideDocumentSemanticTokens(document: vscode.TextDocument, token: vscode.CancellationToken): Promise<vscode.SemanticTokens> {
+        BlitzSemanticTokensProvider.arrayTokenType = vscode.workspace.getConfiguration('blitz3d.editor').get('DimmedArrayTokenType') || 'array';
         const allTokens = BlitzSemanticTokensProvider._parseText(document.getText());
         const builder = new vscode.SemanticTokensBuilder(legend);
         allTokens.forEach((token) => {
@@ -70,7 +72,7 @@ export default class BlitzSemanticTokensProvider implements vscode.DocumentSeman
                         toker.next();
                         this.parseTypeTag(toker);
                         if (toker.curr() != '=' && toker.curr() != '\\' && toker.curr() != '[') {
-                            token.tokenType = 'function';
+                            token.tokenType = parsed.arrayDecls.has(ident) ? this.arrayTokenType : 'function';
                             if (parsed.funcs.find(fun => fun.ident == ident)?.deprecated !== undefined) token.tokenModifiers = ['deprecated'];
                             tokens.push(token);
                             if (toker.curr() == '(') {
@@ -362,7 +364,7 @@ export default class BlitzSemanticTokensProvider implements vscode.DocumentSeman
 
     static parseArrayDecl(toker: BlitzToker) {
         tokens.push({
-            tokenType: 'function',
+            tokenType: this.arrayTokenType,
             range: toker.range(),
             tokenModifiers: []
         });
@@ -600,7 +602,7 @@ export default class BlitzSemanticTokensProvider implements vscode.DocumentSeman
                     this.parseExprSeq(toker, override);
                     toker.next();
                 } else {
-                    if (isArray) token.tokenType = 'function';
+                    if (isArray) token.tokenType = this.arrayTokenType;
                     this.parseVar(toker, true, true);
                 }
                 tokens.push(token);

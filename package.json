@@ -250,6 +250,16 @@
                         ],
                         "description": "Display TODOs as warning messages in the problems window",
                         "default": "Information"
+                    },
+                    "blitz3d.editor.DimmedArrayTokenType": {
+                        "type": "string",
+                        "enum": [
+                            "array",
+                            "variable",
+                            "function"
+                        ],
+                        "description": "The semantic token type to use when highlighting arrays introduced with the dim keyword",
+                        "default": "array"
                     }
                 }
             },

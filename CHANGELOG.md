@@ -3,6 +3,10 @@
 All major and minor version changes are listed here. Patch version changes should only contain bugfixes.
  > To see all changes in code since the first published version, check out the [GitHub repository](https://github.com/denesfilotas/vscode-blitz3d).
 
+## 0.9.5 (pre-release)
+
+- Improved handling of arrays introduced via the `Dim` keyword
+
 ## 0.9.4 (pre-release)
 
 - automatic version detection

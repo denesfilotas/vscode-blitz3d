@@ -11,9 +11,9 @@ Standalone parsing and type checking is implemented based on [the original Blitz
 
 > To see all the changes, check the [changelog](CHANGELOG.md) or the [GitHub repository](https://github.com/denesfilotas/vscode-blitz3d).
 
-New in this version:
+New in this version (`0.9.6`):
 
-- Imrpoved handling of arrays introduced via the `Dim` keyword
+- Fix extension not launching
 
 ## Features
 

@@ -3,6 +3,11 @@
 All major and minor version changes are listed here. Patch version changes should only contain bugfixes.
  > To see all changes in code since the first published version, check out the [GitHub repository](https://github.com/denesfilotas/vscode-blitz3d).
 
+## 0.9.4 (pre-release)
+
+- automatic version detection
+- support for Blitz3D 1.118
+
 ## 0.9.3 (pre-release)
 
 - Initial support for modern Blitz3D up to version 1.117
